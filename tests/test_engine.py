@@ -12,17 +12,23 @@ from discord_ferry.state import MigrationState
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
-async def _noop_connect(
+async def _noop_phase(
     config: FerryConfig,
     state: MigrationState,
     exports: list,
     emit: EventCallback,
 ) -> None:
-    """No-op connect phase for tests that don't need real HTTP."""
+    """No-op phase for tests that don't need real HTTP."""
 
 
-# Use this for tests that don't care about the connect phase
-_NOOP_OVERRIDES: dict[str, PhaseFunction] = {"connect": _noop_connect}
+# Use this for tests that don't care about phases making real API calls
+_NOOP_OVERRIDES: dict[str, PhaseFunction] = {
+    "connect": _noop_phase,
+    "server": _noop_phase,
+    "roles": _noop_phase,
+    "categories": _noop_phase,
+    "channels": _noop_phase,
+}
 
 
 def _make_config(tmp_path: Path, **overrides: object) -> FerryConfig:
@@ -65,7 +71,8 @@ async def test_run_migration_emits_phase_events(tmp_path: Path) -> None:
         called.append("connect")
 
     config = _make_config(tmp_path)
-    await run_migration(config, events.append, phase_overrides={"connect": mock_phase})
+    overrides = {**_NOOP_OVERRIDES, "connect": mock_phase}
+    await run_migration(config, events.append, phase_overrides=overrides)
     assert "connect" in called
     connect_events = [e for e in events if e.phase == "connect"]
     assert any(e.status == "started" for e in connect_events)
@@ -139,7 +146,7 @@ async def test_run_migration_resume_skips_completed(tmp_path: Path) -> None:
 
     events: list[MigrationEvent] = []
     config = _make_config(tmp_path, resume=True)
-    await run_migration(config, events.append)
+    await run_migration(config, events.append, phase_overrides=_NOOP_OVERRIDES)
 
     # connect, server, roles, categories should all be skipped
     for phase in ["connect", "server", "roles", "categories"]:
@@ -160,8 +167,9 @@ async def test_run_migration_phase_error(tmp_path: Path) -> None:
         raise RuntimeError("Something broke")
 
     config = _make_config(tmp_path)
+    overrides = {**_NOOP_OVERRIDES, "connect": failing_phase}
     with pytest.raises(MigrationError, match="connect"):
-        await run_migration(config, lambda e: None, phase_overrides={"connect": failing_phase})
+        await run_migration(config, lambda e: None, phase_overrides=overrides)
 
 
 async def test_run_migration_phase_error_recorded_in_state(tmp_path: Path) -> None:
@@ -180,8 +188,9 @@ async def test_run_migration_phase_error_recorded_in_state(tmp_path: Path) -> No
         raise RuntimeError("boom")
 
     config = _make_config(tmp_path)
+    overrides = {**_NOOP_OVERRIDES, "connect": failing_phase}
     with pytest.raises(MigrationError):
-        await run_migration(config, lambda e: None, phase_overrides={"connect": failing_phase})
+        await run_migration(config, lambda e: None, phase_overrides=overrides)
 
     assert len(captured_state) == 1
     state = captured_state[0]
@@ -247,9 +256,10 @@ async def test_run_migration_unimplemented_phases_skipped(tmp_path: Path) -> Non
         e for e in events if e.status == "skipped" and "Not yet implemented" in e.message
     ]
     skipped_phases = {e.phase for e in skipped_events}
-    # All phases except connect (which has a default) should be skipped
+    # Phases with overrides or defaults run normally; only truly unimplemented ones are skipped
+    implemented_phases = set(_NOOP_OVERRIDES.keys())
     for phase in PHASE_ORDER[1:-1]:
-        if phase == "connect":
+        if phase in implemented_phases:
             continue
         assert phase in skipped_phases, f"{phase} should be skipped when unimplemented"
 
@@ -271,6 +281,14 @@ async def test_run_migration_default_connect_phase(tmp_path: Path) -> None:
     events: list[MigrationEvent] = []
     config = _make_config(tmp_path)
 
+    # Override structure phases with noops so only connect uses _DEFAULT_PHASES
+    structure_noops: dict[str, PhaseFunction] = {
+        "server": _noop_phase,
+        "roles": _noop_phase,
+        "categories": _noop_phase,
+        "channels": _noop_phase,
+    }
+
     with aioresponses() as m:
         m.get(
             f"{config.stoat_url}/",
@@ -283,7 +301,7 @@ async def test_run_migration_default_connect_phase(tmp_path: Path) -> None:
             f"{config.stoat_url}/users/@me",
             payload={"_id": "user123", "username": "ferry"},
         )
-        state = await run_migration(config, events.append)
+        state = await run_migration(config, events.append, phase_overrides=structure_noops)
 
     assert state.autumn_url == "https://autumn.test"
     connect_events = [e for e in events if e.phase == "connect"]

@@ -10,6 +10,7 @@ from discord_ferry.config import FerryConfig
 from discord_ferry.core.events import EventCallback, MigrationEvent
 from discord_ferry.errors import MigrationError
 from discord_ferry.migrator.connect import run_connect
+from discord_ferry.migrator.structure import run_categories, run_channels, run_roles, run_server
 from discord_ferry.parser.dce_parser import parse_export_directory, validate_export
 from discord_ferry.parser.models import DCEExport
 from discord_ferry.reporter import generate_report
@@ -44,6 +45,10 @@ _SKIPPABLE: dict[str, str] = {
 # Default phase implementations — grows as phases are implemented
 _DEFAULT_PHASES: dict[str, PhaseFunction] = {
     "connect": run_connect,
+    "server": run_server,
+    "roles": run_roles,
+    "categories": run_categories,
+    "channels": run_channels,
 }
 
 
