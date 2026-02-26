@@ -1,0 +1,30 @@
+site_name: Discord Ferry
+site_description: Migrate Discord servers to Stoat (formerly Revolt)
+theme:
+  name: material
+  palette:
+    primary: indigo
+  features:
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - content.code.copy
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/install.md
+    - Exporting from Discord: getting-started/export-discord.md
+    - Setting up Stoat: getting-started/setup-stoat.md
+    - Your First Migration: getting-started/first-migration.md
+  - Guides:
+    - GUI Walkthrough: guides/gui-walkthrough.md
+    - CLI Reference: guides/cli-reference.md
+    - Large Servers: guides/large-servers.md
+    - Self-Hosted Tips: guides/self-hosted-tips.md
+    - Troubleshooting: guides/troubleshooting.md
+  - Reference:
+    - Architecture: reference/architecture.md
+    - Stoat API Notes: reference/stoat-api-notes.md
+    - DCE Format: reference/dce-format.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
