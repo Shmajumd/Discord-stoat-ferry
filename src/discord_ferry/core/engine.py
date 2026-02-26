@@ -9,6 +9,7 @@ from typing import Any
 from discord_ferry.config import FerryConfig
 from discord_ferry.core.events import EventCallback, MigrationEvent
 from discord_ferry.errors import MigrationError
+from discord_ferry.migrator.connect import run_connect
 from discord_ferry.parser.dce_parser import parse_export_directory, validate_export
 from discord_ferry.parser.models import DCEExport
 from discord_ferry.reporter import generate_report
@@ -38,6 +39,11 @@ _SKIPPABLE: dict[str, str] = {
     "emoji": "skip_emoji",
     "messages": "skip_messages",
     "reactions": "skip_reactions",
+}
+
+# Default phase implementations — grows as phases are implemented
+_DEFAULT_PHASES: dict[str, PhaseFunction] = {
+    "connect": run_connect,
 }
 
 
@@ -122,11 +128,12 @@ async def run_migration(
                 )
                 continue
 
-        # Resolve phase function
+        # Resolve phase function: overrides first, then defaults
         phase_fn: PhaseFunction | None = None
         if phase_overrides and phase_name in phase_overrides:
             phase_fn = phase_overrides[phase_name]
-        # Real implementations will be wired here once available
+        elif phase_name in _DEFAULT_PHASES:
+            phase_fn = _DEFAULT_PHASES[phase_name]
 
         if phase_fn is None:
             on_event(

@@ -38,8 +38,9 @@ class MigrationState:
     errors: list[dict[str, str]] = field(default_factory=list)
     warnings: list[dict[str, str]] = field(default_factory=list)
 
-    # Stoat server ID
+    # Stoat server ID and Autumn URL (discovered during CONNECT phase)
     stoat_server_id: str = ""
+    autumn_url: str = ""
 
     # Resume tracking
     current_phase: str = ""
@@ -105,6 +106,7 @@ def _state_to_dict(state: MigrationState) -> dict[str, Any]:
         "errors": state.errors,
         "warnings": state.warnings,
         "stoat_server_id": state.stoat_server_id,
+        "autumn_url": state.autumn_url,
         "current_phase": state.current_phase,
         "last_completed_channel": state.last_completed_channel,
         "last_completed_message": state.last_completed_message,
@@ -132,6 +134,7 @@ def _dict_to_state(data: dict[str, Any]) -> MigrationState:
             errors=data.get("errors", []),
             warnings=data.get("warnings", []),
             stoat_server_id=data.get("stoat_server_id", ""),
+            autumn_url=data.get("autumn_url", ""),
             current_phase=data.get("current_phase", ""),
             last_completed_channel=data.get("last_completed_channel", ""),
             last_completed_message=data.get("last_completed_message", ""),
