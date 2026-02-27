@@ -21,7 +21,7 @@ correctly.
 ## Step 1 — Download DiscordChatExporter
 
 DiscordChatExporter (DCE) is a free, open-source tool that reads Discord's API and saves your
-server content to JSON files. The current version is **2.46.1**.
+server content to JSON files. Check the [releases page](https://github.com/Tyrrrz/DiscordChatExporter/releases) for the latest version.
 
 1. Go to [https://github.com/Tyrrrz/DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatExporter).
 2. Click **Releases** in the right sidebar.

@@ -55,6 +55,9 @@ dev = [
     "mypy",
     "pyinstaller>=6.0",
 ]
+docs = [
+    "mkdocs-material>=9.0",
+]
 
 [tool.ruff]
 line-length = 100

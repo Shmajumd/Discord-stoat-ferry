@@ -36,7 +36,7 @@ async def upload_to_autumn(
 
     Args:
         session: An active aiohttp ClientSession to use for the request.
-        autumn_url: Autumn server base URL (e.g. "https://autumn.revolt.chat").
+        autumn_url: Autumn server base URL (e.g. "https://autumn.stoat.chat").
         tag: Upload tag determining the bucket (attachments, avatars, icons, banners, emojis, etc.).
         file_path: Local path to the file to upload.
         token: Stoat session token for the x-session-token header.
