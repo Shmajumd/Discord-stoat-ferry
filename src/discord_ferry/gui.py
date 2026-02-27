@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
+import secrets
 import subprocess
 import sys
 from pathlib import Path
@@ -532,7 +534,7 @@ def main() -> None:
         port=8765,
         native=native,
         reload=False,
-        storage_secret="ferry-secret",
+        storage_secret=os.environ.get("FERRY_STORAGE_SECRET", secrets.token_hex(32)),
     )
 
 
