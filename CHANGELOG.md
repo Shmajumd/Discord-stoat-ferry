@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-02-28
+
+### Changed
+
+- **GUI setup page redesign**: Step indicator wizard (Configure → Validate → Migrate → Done), pre-flight checklist banner with prerequisite links, dark navy header, IBM Plex Sans font, fade-in animations
+- **Hosted/self-hosted toggle**: Replaces bare "Stoat API URL" input with a toggle defaulting to Official Stoat; self-hosted URL field appears only when needed
+- **Inline browse button**: Folder picker icon moved inside the export path input field
+- **Amber action buttons**: Primary actions use amber-700 instead of blue-600
+- **State restoration**: All setup fields persist across back-navigation from validate page
+- **URL scheme validation**: Self-hosted URLs must start with http:// or https://
+- **Step indicators on all pages**: Validate and migrate screens show progress through the wizard
+
 ## [1.0.1] — 2026-02-28
 
 ### Fixed

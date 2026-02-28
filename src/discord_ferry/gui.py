@@ -59,6 +59,21 @@ _STATUS_COLOUR: dict[str, str] = {
     "warning": "orange",
 }
 
+_OFFICIAL_STOAT_URL = "https://api.stoat.chat"
+
+_HEAD_HTML = (
+    '<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:'
+    'wght@400;500;600;700&display=swap" rel="stylesheet">'
+    "<style>"
+    "body { font-family: 'IBM Plex Sans', sans-serif; }"
+    "@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); }"
+    " to { opacity: 1; transform: translateY(0); } }"
+    ".fade-in { animation: fadeIn 0.4s ease-out; }"
+    "</style>"
+)
+
+_STEP_LABELS: list[str] = ["Configure", "Validate", "Migrate", "Done"]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -133,6 +148,38 @@ def _compute_summary(exports: list[DCEExport]) -> dict[str, int | str]:
     }
 
 
+def _resolve_stoat_url(toggle_value: str, custom_url_value: str) -> str:
+    """Return the Stoat API URL based on toggle state."""
+    if (toggle_value or "official") == "official":
+        return _OFFICIAL_STOAT_URL
+    return custom_url_value.strip()
+
+
+def _render_step_indicator(active_step: int) -> None:
+    """Render a 4-step visual indicator (1-indexed). Call inside a ui.column."""
+    with ui.row().classes("w-full justify-center items-center gap-0 mb-6"):
+        for i, label in enumerate(_STEP_LABELS, start=1):
+            is_active = i == active_step
+            is_done = i < active_step
+            # Circle
+            colour = "amber-400" if is_active else ("green-500" if is_done else "gray-300")
+            text_col = "white" if (is_active or is_done) else "gray-400"
+            with ui.element("div").classes(
+                f"w-8 h-8 rounded-full flex items-center justify-center bg-{colour}"
+            ):
+                if is_done:
+                    ui.icon("check", size="16px").classes(f"text-{text_col}")
+                else:
+                    ui.label(str(i)).classes(f"text-{text_col} text-sm font-semibold")
+            ui.label(label).classes(
+                f"text-xs ml-1 {'font-semibold text-gray-800' if is_active else 'text-gray-400'}"
+            )
+            # Connector line (except after last step)
+            if i < len(_STEP_LABELS):
+                line_col = "green-500" if is_done else "gray-200"
+                ui.element("div").classes(f"flex-grow h-0.5 bg-{line_col} mx-2")
+
+
 # ---------------------------------------------------------------------------
 # Screen 1: Setup
 # ---------------------------------------------------------------------------
@@ -141,116 +188,215 @@ def _compute_summary(exports: list[DCEExport]) -> dict[str, int | str]:
 @ui.page("/")
 def setup_page() -> None:
     """Setup screen — collect connection details and migration options."""
+    ui.add_head_html(_HEAD_HTML)
+    storage = app.storage.user
 
     def _rate_label(value: float) -> str:
         return f"{value:.1f}s/msg ({_msgs_per_hour(value):,} msg/hr)"
 
-    with ui.column().classes("w-full items-center min-h-screen bg-gray-50 py-10"):  # noqa: SIM117
-        with ui.card().classes("w-full max-w-xl shadow-md"):
-            ui.label("Discord Ferry").classes("text-2xl font-bold text-center mt-2")
-            ui.label("Migrate a Discord export to your Stoat server").classes(
-                "text-gray-500 text-sm text-center mb-4"
+    async def _on_browse() -> None:
+        if not _HAS_WEBVIEW:
+            ui.notify("Folder picker requires pywebview — install it with: pip install pywebview")
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                None,
+                lambda: webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG),
             )
+            if result and result[0]:
+                export_dir_input.set_value(result[0])
+        except Exception:
+            ui.notify("Folder picker requires native mode (pywebview window)")
 
-            async def _on_browse() -> None:
-                if not _HAS_WEBVIEW:
-                    ui.notify(
-                        "Folder picker requires pywebview — install it with: pip install pywebview"
-                    )
-                    return
-                try:
-                    loop = asyncio.get_running_loop()
-                    result = await loop.run_in_executor(
-                        None,
-                        lambda: webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG),
-                    )
-                    if result and result[0]:
-                        export_dir_input.set_value(result[0])
-                except Exception:
-                    ui.notify("Folder picker requires native mode (pywebview window)")
+    with ui.column().classes("w-full items-center min-h-screen bg-gray-50 py-10"):
+        # Step indicator
+        with ui.element("div").classes("w-full max-w-xl fade-in"):
+            _render_step_indicator(active_step=1)
 
-            with ui.row().classes("w-full items-end gap-2"):
-                export_dir_input = ui.input(
-                    label="Export folder path",
-                    placeholder="/path/to/your/dce-export",
-                ).classes("flex-grow")
-                browse_btn = ui.button("Browse...", on_click=_on_browse)
-                browse_btn.classes("shrink-0")
-                if not _HAS_WEBVIEW:
-                    browse_btn.disable()
-                    browse_btn.tooltip("Install pywebview for folder picker")
+        # Pre-flight checklist banner
+        with ui.card().classes("w-full max-w-xl mb-4 fade-in").props("flat bordered"):
+            with ui.row().classes("items-center gap-2 mb-2"):
+                ui.icon("info", color="blue").classes("text-lg")
+                ui.label("Before you start").classes("font-semibold text-gray-700")
+            for icon, text, link, link_text in [
+                (
+                    "o_check_circle",
+                    "A Discord export folder from ",
+                    "https://github.com/Tyrrrz/DiscordChatExporter",
+                    "DiscordChatExporter",
+                ),
+                (
+                    "o_check_circle",
+                    "A Stoat server where you have admin access",
+                    None,
+                    None,
+                ),
+                (
+                    "o_check_circle",
+                    "A bot token from your Stoat server settings ",
+                    "https://developers.stoat.chat",
+                    "(how?)",
+                ),
+            ]:
+                with ui.row().classes("items-center gap-2 pl-2"):
+                    ui.icon(icon, color="green").classes("text-base")
+                    if link and link_text:
+                        with ui.row().classes("items-baseline gap-0"):
+                            ui.label(text).classes("text-sm text-gray-600")
+                            ui.link(link_text, link, new_tab=True).classes("text-sm text-blue-600")
+                    else:
+                        ui.label(text).classes("text-sm text-gray-600")
 
-            stoat_url_input = ui.input(
-                label="Stoat API URL",
-                placeholder="https://api.stoat.chat",
-            ).classes("w-full")
-
-            token_input = ui.input(
-                label="Stoat token",
-                placeholder="Your user or bot token",
-                password=True,
-                password_toggle_button=True,
-            ).classes("w-full")
-
-            with ui.expansion("Advanced Options", icon="settings").classes("w-full mt-2"):
-                server_id_input = ui.input(
-                    label="Existing server ID (optional)",
-                    placeholder="Leave blank to create a new server",
-                ).classes("w-full")
-
-                server_name_input = ui.input(
-                    label="Server name (optional)",
-                    placeholder="Defaults to Discord server name",
-                ).classes("w-full")
-
-                rate_slider_label = ui.label(_rate_label(1.0)).classes("text-sm text-gray-600 mt-3")
-                rate_slider = ui.slider(min=0.5, max=3.0, value=1.0, step=0.1).classes("w-full")
-                rate_slider.on(
-                    "update:model-value",
-                    lambda e: rate_slider_label.set_text(_rate_label(e.args)),
+        # Main form card
+        with ui.card().classes("w-full max-w-xl shadow-md fade-in").tight():
+            # Dark header
+            with ui.element("div").classes("w-full bg-[#0f172a] px-6 py-5 rounded-t-lg"):
+                ui.label("Discord Ferry").classes("text-2xl font-bold text-white")
+                ui.label("Migrate a Discord export to your Stoat server").classes(
+                    "text-slate-400 text-sm mt-1"
                 )
 
-                skip_messages_cb = ui.checkbox("Skip messages (structure only)")
-                skip_emoji_cb = ui.checkbox("Skip emoji upload")
-                skip_reactions_cb = ui.checkbox("Skip reactions")
-                skip_threads_cb = ui.checkbox("Skip threads and forum posts")
-                dry_run_check = ui.checkbox("Dry run (no API calls)").classes("mt-2")
+            # Form body
+            with ui.column().classes("w-full px-6 py-5 gap-4"):
+                # Export folder with inline browse button
+                with ui.input(  # noqa: SIM117
+                    label="Export folder path",
+                    placeholder="/path/to/your/dce-export",
+                    value=str(storage.get("export_dir", "")),
+                ).classes("w-full") as export_dir_input:
+                    with export_dir_input.add_slot("append"):
+                        browse_btn = ui.button(icon="folder_open", on_click=_on_browse).props(
+                            "flat dense"
+                        )
+                        if not _HAS_WEBVIEW:
+                            browse_btn.disable()
+                            browse_btn.tooltip("Install pywebview for folder picker")
 
-            error_label = ui.label("").classes("text-red-500 text-sm")
+                # Hosted / self-hosted toggle
+                ui.label("Stoat instance").classes("text-sm font-medium text-gray-700 -mb-2")
+                server_toggle = ui.toggle(
+                    {"official": "Official Stoat (stoat.chat)", "self-hosted": "Self-hosted"},
+                    value=storage.get("server_toggle", "official"),
+                ).classes("w-full")
 
-            def _on_validate_click() -> None:
-                export_dir = export_dir_input.value.strip()
-                stoat_url = stoat_url_input.value.strip()
-                token = token_input.value.strip()
+                custom_url_input = (
+                    ui.input(
+                        label="Stoat API URL",
+                        placeholder="https://your-instance.example.com",
+                        value=str(storage.get("custom_stoat_url", "")),
+                    )
+                    .classes("w-full")
+                    .bind_visibility_from(server_toggle, "value", value="self-hosted")
+                )
 
-                missing: list[str] = []
-                if not export_dir:
-                    missing.append("Export folder")
-                if not stoat_url:
-                    missing.append("Stoat URL")
-                if not token:
-                    missing.append("Token")
-                if missing:
-                    error_label.set_text(f"Required: {', '.join(missing)}")
-                    return
+                # Token
+                token_input = ui.input(
+                    label="Bot token",
+                    placeholder="Paste your bot token here",
+                    password=True,
+                    password_toggle_button=True,
+                    value=str(storage.get("token", "")),
+                ).classes("w-full")
 
-                app.storage.user["export_dir"] = export_dir
-                app.storage.user["stoat_url"] = stoat_url
-                app.storage.user["token"] = token
-                app.storage.user["server_id"] = server_id_input.value.strip()
-                app.storage.user["server_name"] = server_name_input.value.strip()
-                app.storage.user["rate_limit"] = rate_slider.value
-                app.storage.user["skip_messages"] = skip_messages_cb.value
-                app.storage.user["skip_emoji"] = skip_emoji_cb.value
-                app.storage.user["skip_reactions"] = skip_reactions_cb.value
-                app.storage.user["skip_threads"] = skip_threads_cb.value
-                app.storage.user["dry_run"] = dry_run_check.value
+                with ui.row().classes("items-center gap-1 -mt-2"):
+                    ui.icon("help_outline", size="16px").classes("text-gray-400")
+                    ui.link(
+                        "How to create a bot and get a token",
+                        "https://developers.stoat.chat",
+                        new_tab=True,
+                    ).classes("text-xs text-blue-600")
 
-                ui.navigate.to("/validate")
+                # Advanced options
+                with ui.expansion("Advanced Options", icon="settings").classes("w-full"):
+                    server_id_input = ui.input(
+                        label="Existing server ID (optional)",
+                        placeholder="Leave blank to create a new server",
+                        value=str(storage.get("server_id", "")),
+                    ).classes("w-full")
 
-            ui.button("Validate Export", on_click=_on_validate_click).classes(
-                "w-full mt-4 bg-blue-600 text-white"
-            )
+                    server_name_input = ui.input(
+                        label="Server name (optional)",
+                        placeholder="Defaults to Discord server name",
+                        value=str(storage.get("server_name", "")),
+                    ).classes("w-full")
+
+                    stored_rate = float(storage.get("rate_limit", 1.0))
+                    rate_slider_label = ui.label(_rate_label(stored_rate)).classes(
+                        "text-sm text-gray-600 mt-3"
+                    )
+                    rate_slider = ui.slider(min=0.5, max=3.0, value=stored_rate, step=0.1).classes(
+                        "w-full"
+                    )
+                    rate_slider.on(
+                        "update:model-value",
+                        lambda e: rate_slider_label.set_text(_rate_label(e.args)),
+                    )
+
+                    skip_messages_cb = ui.checkbox(
+                        "Skip messages (structure only)",
+                        value=bool(storage.get("skip_messages", False)),
+                    )
+                    skip_emoji_cb = ui.checkbox(
+                        "Skip emoji upload",
+                        value=bool(storage.get("skip_emoji", False)),
+                    )
+                    skip_reactions_cb = ui.checkbox(
+                        "Skip reactions",
+                        value=bool(storage.get("skip_reactions", False)),
+                    )
+                    skip_threads_cb = ui.checkbox(
+                        "Skip threads and forum posts",
+                        value=bool(storage.get("skip_threads", False)),
+                    )
+                    dry_run_check = ui.checkbox(
+                        "Dry run (no API calls)",
+                        value=bool(storage.get("dry_run", False)),
+                    ).classes("mt-2")
+
+                error_label = ui.label("").classes("text-red-500 text-sm")
+
+                def _on_validate_click() -> None:
+                    export_dir = export_dir_input.value.strip()
+                    toggle_val = server_toggle.value or "official"
+                    stoat_url = _resolve_stoat_url(toggle_val, custom_url_input.value)
+                    token = token_input.value.strip()
+
+                    missing: list[str] = []
+                    if not export_dir:
+                        missing.append("Export folder")
+                    if toggle_val == "self-hosted" and not stoat_url:
+                        missing.append("Stoat API URL")
+                    elif toggle_val == "self-hosted" and not stoat_url.startswith(
+                        ("http://", "https://")
+                    ):
+                        error_label.set_text("Stoat API URL must start with http:// or https://")
+                        return
+                    if not token:
+                        missing.append("Bot token")
+                    if missing:
+                        error_label.set_text(f"Required: {', '.join(missing)}")
+                        return
+
+                    storage["export_dir"] = export_dir
+                    storage["stoat_url"] = stoat_url
+                    storage["server_toggle"] = toggle_val
+                    storage["custom_stoat_url"] = custom_url_input.value.strip()
+                    storage["token"] = token
+                    storage["server_id"] = server_id_input.value.strip()
+                    storage["server_name"] = server_name_input.value.strip()
+                    storage["rate_limit"] = rate_slider.value
+                    storage["skip_messages"] = skip_messages_cb.value
+                    storage["skip_emoji"] = skip_emoji_cb.value
+                    storage["skip_reactions"] = skip_reactions_cb.value
+                    storage["skip_threads"] = skip_threads_cb.value
+                    storage["dry_run"] = dry_run_check.value
+
+                    ui.navigate.to("/validate")
+
+                ui.button("Validate Export", on_click=_on_validate_click).classes(
+                    "w-full mt-2"
+                ).props("color=amber-7 text-color=white unelevated").classes("font-semibold")
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +407,7 @@ def setup_page() -> None:
 @ui.page("/validate")
 def validate_page() -> None:
     """Validate screen — show parsed export summary, warnings, and ETA."""
+    ui.add_head_html(_HEAD_HTML)
 
     storage = app.storage.user
     if not storage.get("export_dir") or not storage.get("stoat_url") or not storage.get("token"):
@@ -270,8 +417,11 @@ def validate_page() -> None:
     export_dir = Path(storage["export_dir"])
     rate_limit: float = float(storage.get("rate_limit", 1.0))
 
-    with ui.column().classes("w-full items-center min-h-screen bg-gray-50 py-10"):  # noqa: SIM117
-        with ui.card().classes("w-full max-w-2xl shadow-md"):
+    with ui.column().classes("w-full items-center min-h-screen bg-gray-50 py-10"):
+        with ui.element("div").classes("w-full max-w-2xl fade-in"):
+            _render_step_indicator(active_step=2)
+
+        with ui.card().classes("w-full max-w-2xl shadow-md fade-in"):
             # Parse export — these are fast synchronous operations
             try:
                 exports = parse_export_directory(export_dir)
@@ -349,9 +499,11 @@ def validate_page() -> None:
                 ui.button("Back", on_click=lambda: ui.navigate.to("/")).classes(
                     "bg-gray-200 text-gray-800"
                 )
-                start_btn = ui.button(
-                    "Start Migration", on_click=lambda: ui.navigate.to("/migrate")
-                ).classes("bg-blue-600 text-white")
+                start_btn = (
+                    ui.button("Start Migration", on_click=lambda: ui.navigate.to("/migrate"))
+                    .props("color=amber-7 text-color=white unelevated")
+                    .classes("font-semibold")
+                )
                 if has_rendered_markdown:
                     start_btn.disable()
 
@@ -364,6 +516,7 @@ def validate_page() -> None:
 @ui.page("/migrate")
 def migrate_page() -> None:
     """Migration screen — run the engine, show live phase/progress/log."""
+    ui.add_head_html(_HEAD_HTML)
 
     storage = app.storage.user
     if not storage.get("export_dir") or not storage.get("stoat_url") or not storage.get("token"):
@@ -381,6 +534,10 @@ def migrate_page() -> None:
     # Flag to gate migration start behind the resume/fresh choice.
     resume_choice_made = asyncio.Event()
     needs_resume_choice = previous_state is not None and not previous_state.is_dry_run
+
+    with ui.column().classes("w-full items-center"):  # noqa: SIM117
+        with ui.element("div").classes("w-full max-w-3xl fade-in mt-10 mb-0"):
+            _render_step_indicator(active_step=3)
 
     if needs_resume_choice:
         with ui.card().classes("w-full max-w-2xl mx-auto mb-4 bg-amber-50 border-amber-300"):
