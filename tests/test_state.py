@@ -92,3 +92,29 @@ def test_atomic_write_no_tmp_leftover(tmp_path: Path) -> None:
     save_state(MigrationState(), tmp_path)
     assert not (tmp_path / "state.json.tmp").exists()
     assert (tmp_path / "state.json").exists()
+
+
+def test_load_state_missing_newer_fields(tmp_path: Path) -> None:
+    """A minimal JSON (from an older version) fills missing fields with defaults."""
+    import json
+
+    minimal = {
+        "stoat_server_id": "old-server",
+        "current_phase": "messages",
+        "role_map": {"r1": "sr1"},
+    }
+    (tmp_path / "state.json").write_text(json.dumps(minimal), encoding="utf-8")
+    loaded = load_state(tmp_path)
+    assert loaded.stoat_server_id == "old-server"
+    assert loaded.role_map == {"r1": "sr1"}
+    # Newer fields should be filled with defaults
+    assert loaded.emoji_map == {}
+    assert loaded.author_names == {}
+    assert loaded.upload_cache == {}
+    assert loaded.attachments_uploaded == 0
+    assert loaded.attachments_skipped == 0
+    assert loaded.reactions_applied == 0
+    assert loaded.pins_applied == 0
+    assert loaded.is_dry_run is False
+    assert loaded.pending_pins == []
+    assert loaded.pending_reactions == []

@@ -1177,3 +1177,115 @@ async def test_skip_threads_skips_thread_exports(
 
     assert "main1" in state.message_map
     assert "thread1" not in state.message_map
+
+
+async def test_embed_media_upload(tmp_path: Path, mock_aiohttp: aioresponses) -> None:
+    """Embed with a local thumbnail triggers upload and sets media field on the embed."""
+    # Create a local thumbnail file
+    thumb_dir = tmp_path / "media"
+    thumb_dir.mkdir()
+    thumb_file = thumb_dir / "thumb.png"
+    thumb_file.write_bytes(b"fake-png-data")
+
+    msg = _make_message(
+        id="msg_embed",
+        content="Check this out",
+        embeds=[
+            {
+                "title": "Link Preview",
+                "description": "A description",
+                "thumbnail": {"url": "media/thumb.png"},
+            }
+        ],
+    )
+    export = _make_export(messages=[msg])
+    config = _make_config(tmp_path)
+    state = _make_state()
+    events: list[MigrationEvent] = []
+
+    # Mock autumn upload
+    mock_aiohttp.post(
+        f"{AUTUMN_URL}/attachments",
+        payload={"id": "autumn_thumb1"},
+        repeat=True,
+    )
+    # Mock message send
+    mock_aiohttp.post(CHANNEL_MSG_URL, payload={"_id": "stoat_embed_msg"}, repeat=True)
+
+    await run_messages(config, state, [export], events.append)
+    assert "msg_embed" in state.message_map
+    assert state.attachments_uploaded >= 1
+
+
+async def test_sticker_image_upload(tmp_path: Path, mock_aiohttp: aioresponses) -> None:
+    """Message with a sticker that has a local image path triggers upload."""
+    sticker_dir = tmp_path / "stickers"
+    sticker_dir.mkdir()
+    sticker_file = sticker_dir / "cool.png"
+    sticker_file.write_bytes(b"fake-sticker-data")
+
+    msg = _make_message(
+        id="msg_sticker",
+        content="Look at this sticker",
+        stickers=[
+            {
+                "id": "sticker1",
+                "name": "CoolSticker",
+                "format": "png",
+                "sourceUrl": "stickers/cool.png",
+            }
+        ],
+    )
+    export = _make_export(messages=[msg])
+    config = _make_config(tmp_path)
+    state = _make_state()
+    events: list[MigrationEvent] = []
+
+    mock_aiohttp.post(
+        f"{AUTUMN_URL}/attachments",
+        payload={"id": "autumn_sticker1"},
+        repeat=True,
+    )
+    mock_aiohttp.post(CHANNEL_MSG_URL, payload={"_id": "stoat_sticker_msg"}, repeat=True)
+
+    await run_messages(config, state, [export], events.append)
+    assert "msg_sticker" in state.message_map
+    assert state.attachments_uploaded >= 1
+
+
+async def test_poll_in_build_content(tmp_path: Path, mock_aiohttp: aioresponses) -> None:
+    """Message with a poll field includes poll text in the sent content."""
+    msg = _make_message(
+        id="msg_poll",
+        content="Vote here",
+        poll={
+            "question": {"text": "What do you prefer?"},
+            "answers": [
+                {"text": "Option A", "votes": 5},
+                {"text": "Option B", "votes": 3},
+            ],
+        },
+    )
+    export = _make_export(messages=[msg])
+    config = _make_config(tmp_path)
+    state = _make_state()
+    events: list[MigrationEvent] = []
+
+    captured_bodies: list[dict[str, Any]] = []
+
+    def capture_callback(url: object, **kwargs: Any) -> None:
+        body = kwargs.get("json") or {}
+        captured_bodies.append(dict(body))
+
+    mock_aiohttp.post(
+        CHANNEL_MSG_URL,
+        payload={"_id": "stoat_poll_msg"},
+        callback=capture_callback,
+        repeat=True,
+    )
+
+    await run_messages(config, state, [export], events.append)
+    assert "msg_poll" in state.message_map
+    # At least one sent message should contain poll text
+    poll_found = any("What do you prefer?" in str(b.get("content", "")) for b in captured_bodies)
+    assert poll_found, f"Poll text not found in sent messages: {captured_bodies}"

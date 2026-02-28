@@ -357,3 +357,59 @@ async def test_api_429_retry(mock_aiohttp: aioresponses) -> None:
     async with aiohttp.ClientSession() as session:
         result = await api_fetch_server(session, BASE_URL, TOKEN, "srv1")
     assert result["_id"] == "srv1"
+
+
+async def test_api_network_error_retry_recovers(mock_aiohttp: aioresponses) -> None:
+    """A transient ClientError on attempt 1 is retried; success on attempt 2."""
+    mock_aiohttp.get(
+        f"{BASE_URL}/servers/srv1",
+        exception=aiohttp.ClientError("Connection reset"),
+    )
+    mock_aiohttp.get(
+        f"{BASE_URL}/servers/srv1",
+        payload={"_id": "srv1", "name": "Recovered"},
+    )
+    async with aiohttp.ClientSession() as session:
+        result = await api_fetch_server(session, BASE_URL, TOKEN, "srv1")
+    assert result["_id"] == "srv1"
+
+
+async def test_api_network_error_exhausted(mock_aiohttp: aioresponses) -> None:
+    """Three consecutive ClientErrors exhaust retries and raise MigrationError."""
+    for _ in range(3):
+        mock_aiohttp.get(
+            f"{BASE_URL}/servers/srv1",
+            exception=aiohttp.ClientError("Connection refused"),
+        )
+    async with aiohttp.ClientSession() as session:
+        with pytest.raises(MigrationError, match="Network error after 3 retries"):
+            await api_fetch_server(session, BASE_URL, TOKEN, "srv1")
+
+
+async def test_api_502_retry_exhaustion(mock_aiohttp: aioresponses) -> None:
+    """Three consecutive 502 responses exhaust retries and raise MigrationError."""
+    for _ in range(3):
+        mock_aiohttp.get(
+            f"{BASE_URL}/servers/srv1",
+            status=502,
+            body="Bad Gateway",
+        )
+    async with aiohttp.ClientSession() as session:
+        with pytest.raises(MigrationError, match="API request failed after 3 retries"):
+            await api_fetch_server(session, BASE_URL, TOKEN, "srv1")
+
+
+async def test_api_503_retry_success(mock_aiohttp: aioresponses) -> None:
+    """A 503 on attempt 1 is retried; success on attempt 2."""
+    mock_aiohttp.get(
+        f"{BASE_URL}/servers/srv1",
+        status=503,
+        body="Service Unavailable",
+    )
+    mock_aiohttp.get(
+        f"{BASE_URL}/servers/srv1",
+        payload={"_id": "srv1", "name": "Recovered"},
+    )
+    async with aiohttp.ClientSession() as session:
+        result = await api_fetch_server(session, BASE_URL, TOKEN, "srv1")
+    assert result["_id"] == "srv1"
