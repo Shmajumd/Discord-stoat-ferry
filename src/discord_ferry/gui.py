@@ -19,6 +19,14 @@ from discord_ferry.errors import MigrationError
 from discord_ferry.parser.dce_parser import parse_export_directory, validate_export
 from discord_ferry.state import load_state
 
+_HAS_WEBVIEW = False
+try:
+    import webview
+
+    _HAS_WEBVIEW = True
+except ImportError:
+    pass
+
 if TYPE_CHECKING:
     from discord_ferry.core.events import MigrationEvent
     from discord_ferry.parser.models import DCEExport
@@ -144,10 +152,33 @@ def setup_page() -> None:
                 "text-gray-500 text-sm text-center mb-4"
             )
 
-            export_dir_input = ui.input(
-                label="Export folder path",
-                placeholder="/path/to/your/dce-export",
-            ).classes("w-full")
+            async def _on_browse() -> None:
+                if not _HAS_WEBVIEW:
+                    ui.notify(
+                        "Folder picker requires pywebview — install it with: pip install pywebview"
+                    )
+                    return
+                try:
+                    loop = asyncio.get_running_loop()
+                    result = await loop.run_in_executor(
+                        None,
+                        lambda: webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG),
+                    )
+                    if result and result[0]:
+                        export_dir_input.set_value(result[0])
+                except Exception:
+                    ui.notify("Folder picker requires native mode (pywebview window)")
+
+            with ui.row().classes("w-full items-end gap-2"):
+                export_dir_input = ui.input(
+                    label="Export folder path",
+                    placeholder="/path/to/your/dce-export",
+                ).classes("flex-grow")
+                browse_btn = ui.button("Browse...", on_click=_on_browse)
+                browse_btn.classes("shrink-0")
+                if not _HAS_WEBVIEW:
+                    browse_btn.disable()
+                    browse_btn.tooltip("Install pywebview for folder picker")
 
             stoat_url_input = ui.input(
                 label="Stoat API URL",
@@ -165,6 +196,11 @@ def setup_page() -> None:
                 server_id_input = ui.input(
                     label="Existing server ID (optional)",
                     placeholder="Leave blank to create a new server",
+                ).classes("w-full")
+
+                server_name_input = ui.input(
+                    label="Server name (optional)",
+                    placeholder="Defaults to Discord server name",
                 ).classes("w-full")
 
                 rate_slider_label = ui.label(_rate_label(1.0)).classes("text-sm text-gray-600 mt-3")
@@ -187,14 +223,22 @@ def setup_page() -> None:
                 stoat_url = stoat_url_input.value.strip()
                 token = token_input.value.strip()
 
-                if not export_dir or not stoat_url or not token:
-                    error_label.set_text("Export folder, Stoat URL, and token are all required.")
+                missing: list[str] = []
+                if not export_dir:
+                    missing.append("Export folder")
+                if not stoat_url:
+                    missing.append("Stoat URL")
+                if not token:
+                    missing.append("Token")
+                if missing:
+                    error_label.set_text(f"Required: {', '.join(missing)}")
                     return
 
                 app.storage.user["export_dir"] = export_dir
                 app.storage.user["stoat_url"] = stoat_url
                 app.storage.user["token"] = token
                 app.storage.user["server_id"] = server_id_input.value.strip()
+                app.storage.user["server_name"] = server_name_input.value.strip()
                 app.storage.user["rate_limit"] = rate_slider.value
                 app.storage.user["skip_messages"] = skip_messages_cb.value
                 app.storage.user["skip_emoji"] = skip_emoji_cb.value
@@ -371,6 +415,7 @@ def migrate_page() -> None:
         stoat_url=storage["stoat_url"],
         token=storage["token"],
         server_id=storage.get("server_id") or None,
+        server_name=storage.get("server_name") or None,
         dry_run=bool(storage.get("dry_run", False)),
         message_rate_limit=float(storage.get("rate_limit", 1.0)),
         skip_messages=bool(storage.get("skip_messages", False)),
@@ -510,11 +555,21 @@ def migrate_page() -> None:
     def _update_ui(event: MigrationEvent) -> None:
         nonlocal messages_sent, error_count, warning_count, total_messages
 
-        # Update phase chip colour
+        # Update phase chip colour and text indicator (WCAG 1.4.1)
         chip = phase_chips.get(event.phase)
         if chip is not None:
             colour = _STATUS_COLOUR.get(event.status, "grey")
             chip.props(f"color={colour}")
+            base_label = _PHASE_LABELS.get(event.phase, event.phase)
+            indicator = {
+                "completed": " ✓",
+                "error": " ✗",
+                "skipped": " —",
+                "started": " ●",
+                "progress": " ●",
+                "warning": " ⚠",
+            }.get(event.status, "")
+            chip.set_text(f"{base_label}{indicator}")
 
         # Update stats
         match event.status:
