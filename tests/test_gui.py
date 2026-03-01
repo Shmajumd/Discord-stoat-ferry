@@ -70,6 +70,22 @@ def test_phase_labels_include_export() -> None:
     assert "export" in _PHASE_LABELS
 
 
+def test_status_colour_confirm() -> None:
+    """_STATUS_COLOUR includes a colour for the confirm status."""
+    from discord_ferry.gui import _STATUS_COLOUR
+
+    assert _STATUS_COLOUR["confirm"] == "amber"
+
+
+def test_phase_labels_complete() -> None:
+    """_PHASE_LABELS has entries for all phases in PHASE_ORDER."""
+    from discord_ferry.core.engine import PHASE_ORDER
+    from discord_ferry.gui import _PHASE_LABELS
+
+    for phase in PHASE_ORDER:
+        assert phase in _PHASE_LABELS, f"Missing label for phase: {phase}"
+
+
 def test_compute_summary_with_fixtures() -> None:
     exports = parse_export_directory(FIXTURES_DIR)
     summary = _compute_summary(exports)
