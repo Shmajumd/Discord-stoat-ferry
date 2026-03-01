@@ -190,7 +190,7 @@ Ferry checks your export files locally before making any API calls. Nothing is s
 
     1. Click **Start Migration**.
     2. The Progress screen appears and shows:
-        - Phase indicator — 11 phases, each with a checkmark when complete
+        - Phase indicator — 12 phases, each with a checkmark when complete
         - Progress bar during the message import phase
         - Running totals: messages sent, attachments uploaded, errors
         - Live log stream at the bottom
@@ -218,7 +218,7 @@ Ferry checks your export files locally before making any API calls. Nothing is s
 
 === "GUI (Windows / macOS)"
 
-    When all 11 phases complete, Ferry shows a summary card with:
+    When all 12 phases complete, Ferry shows a summary card with:
 
     - Total channels created
     - Total messages migrated

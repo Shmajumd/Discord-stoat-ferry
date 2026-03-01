@@ -9,27 +9,32 @@ This guide walks through every screen of the Discord Ferry web interface. Ferry 
 
 ## Setup Screen
 
-The first screen collects the information Ferry needs before it can begin.
+The first screen collects the information Ferry needs before it can begin. Ferry has two modes — **1-Click Migration** (default) and **Offline mode**.
 
 <!-- screenshot: setup screen with all fields visible -->
 
-### Export Folder
+### 1-Click Migration (default)
 
-Paste or type the path to your DiscordChatExporter export folder, or click **Browse** to open a file picker. The folder should contain one or more `.json` files and a `media/` subfolder.
+In this mode, Ferry downloads and runs DiscordChatExporter for you automatically.
+
+**Discord token** — paste your Discord user token (masked input). Click "How to find these?" for step-by-step instructions.
+
+**Discord server ID** — paste the server ID (right-click the server name in Discord > Copy Server ID).
+
+**ToS disclaimer** — check the checkbox to acknowledge that using a user token may violate Discord's Terms of Service.
+
+**Stoat API URL** — select Official (`https://api.stoat.chat`) or enter your self-hosted domain.
+
+**Stoat bot token** — paste your Stoat user token (masked input).
+
+### Offline Mode ("I already have exports")
+
+Toggle **"I already have exports"** to switch to offline mode. The Discord token and server ID fields are replaced with:
+
+**Export folder** — paste or browse to your DiscordChatExporter export folder. The folder should contain one or more `.json` files and a `media/` subfolder.
 
 !!! warning "Media folder required"
     If you exported without the `--media` flag, attachments will not migrate. Re-export with `--media` before continuing.
-
-### Stoat API URL
-
-The base URL of your Stoat server. For the official hosted service, use `https://api.stoat.chat`. For a self-hosted instance, enter your own domain (for example, `https://stoat.example.com`).
-
-### Stoat Token
-
-Your personal account token. This field is masked — the characters are hidden as you type.
-
-!!! warning "Use a user token, not a bot token"
-    Bot tokens cannot create servers. Open your Stoat web client, open your browser developer tools (F12), go to **Application > Local Storage**, and copy the `token` value.
 
 ### Advanced Options
 
@@ -48,9 +53,9 @@ Click **Advanced Options** to expand the following settings. Defaults are safe f
 !!! tip "Running into 429 errors?"
     Increase the rate limit slider to 2.0 or 3.0 seconds. This slows the migration but eliminates rate-limit errors.
 
-### Validate Export Button
+### Continue Button
 
-Click **Validate Export** when all required fields are filled. Ferry parses your export locally and moves to the Validate screen. No network calls are made at this stage.
+Click **Continue** when all required fields are filled. In 1-Click mode, Ferry moves to the Export screen. In offline mode, Ferry parses your export locally and moves to the Validate screen.
 
 ---
 
@@ -102,27 +107,59 @@ Use the **Back** button to return to the Setup screen and adjust settings, or cl
 
 ---
 
+## Export Screen (1-Click Mode Only)
+
+This screen appears only when you use 1-Click Migration. Ferry downloads and runs DiscordChatExporter automatically.
+
+<!-- screenshot: export screen showing progress -->
+
+### What Happens
+
+Ferry runs through three steps automatically:
+
+1. **Token validation** — confirms your Discord token works via the Discord API.
+2. **DCE download** — if DiscordChatExporter is not cached locally, Ferry downloads the correct version for your operating system.
+3. **Channel export** — DCE exports all channels, threads, and media from your Discord server. Progress is shown per-channel.
+
+### Cached Exports
+
+If Ferry detects cached export files from a previous run, it shows a summary (file count and total size) and offers two choices:
+
+- **Use cached exports** — skip re-exporting and go straight to validation.
+- **Re-export** — discard cached files and export fresh.
+
+This is useful when resuming after a crash or when you want to re-run the migration without re-downloading everything.
+
+### .NET Runtime
+
+DCE requires the .NET 8 runtime on macOS and Linux. If Ferry detects it is missing, it shows an error with a download link. Windows users are not affected — the Windows DCE build is self-contained.
+
+When the export completes, Ferry automatically moves to the Validate screen.
+
+---
+
 ## Migrate Screen
 
-The main migration screen. Ferry works through 11 sequential phases.
+The main migration screen. Ferry works through 12 sequential phases.
 
 <!-- screenshot: migrate screen mid-migration showing phase indicators and progress bar -->
 
 ### Phase Indicator
 
-The 11 phases are shown in order, with a checkmark as each completes:
+The 12 phases are shown in order, with a checkmark as each completes:
 
-1. **Validate** — confirm export is readable
-2. **Connect** — verify Stoat credentials
-3. **Server** — create or connect to the target server
-4. **Roles** — create all server roles
-5. **Categories** — create channel categories
-6. **Channels** — create all channels
-7. **Emoji** — upload custom emoji
-8. **Messages** — send all messages
-9. **Reactions** — add message reactions
-10. **Pins** — pin messages
-11. **Report** — write summary report
+1. **Export** — run DiscordChatExporter (skipped in offline mode)
+2. **Validate** — confirm export is readable
+3. **Connect** — verify Stoat credentials
+4. **Server** — create or connect to the target server
+5. **Roles** — create all server roles
+6. **Categories** — create channel categories
+7. **Channels** — create all channels
+8. **Emoji** — upload custom emoji
+9. **Messages** — send all messages
+10. **Reactions** — add message reactions
+11. **Pins** — pin messages
+12. **Report** — write summary report
 
 ### Progress Bar
 

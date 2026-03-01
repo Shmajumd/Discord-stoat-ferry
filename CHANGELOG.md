@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 
 - Remove hardcoded local path from `.claude/settings.json` for open-source readiness.
+- Update README "How It Works" to reflect 1-Click Migration as the default workflow.
+- Update GUI walkthrough: rewrite Setup screen for two-mode layout, add Export screen docs, fix phase count (11 → 12).
+- Fix stale "11 phases" references in first-migration guide and brief.
 
 ## [1.2.1] — 2026-03-01
 

@@ -17,21 +17,22 @@
 
 ---
 
-## How It Works (3 Steps)
+## How It Works
 
-### Step 1: Export your Discord server
+### Step 1: Enter your tokens
 
-Use DiscordChatExporter to save your server locally.
-[Detailed guide](docs/getting-started/export-discord.md)
+Launch Ferry, paste your Discord token and server ID, then your Stoat URL and token.
 
-### Step 2: Open Ferry and connect to your Stoat instance
+### Step 2: Ferry exports your server automatically
 
-Point Ferry at your export folder, enter your Stoat URL and token.
+Ferry downloads and runs DiscordChatExporter behind the scenes — no manual steps.
 
 ### Step 3: Click Migrate
 
-Your messages, channels, roles, emoji and attachments migrate to Stoat.
-Original authors show up via masquerade. Pins are preserved.
+Messages, channels, roles, emoji, and attachments migrate to Stoat.
+Original authors appear via masquerade. Pins are preserved.
+
+> Already have DCE exports? Ferry also supports [offline mode](docs/getting-started/export-discord.md) — just point it at your export folder.
 
 ---
 
@@ -71,7 +72,7 @@ Ferry can **pause and resume** — close it anytime, pick up where you left off.
 
 ## Detailed Guides
 
-- [Exporting from Discord (step-by-step)](docs/getting-started/export-discord.md)
+- [Exporting from Discord manually (offline mode)](docs/getting-started/export-discord.md)
 - [Setting up your Stoat instance](docs/getting-started/setup-stoat.md)
 - [Your first migration (full walkthrough)](docs/getting-started/first-migration.md)
 - [GUI guide (every screen explained)](docs/guides/gui-walkthrough.md)

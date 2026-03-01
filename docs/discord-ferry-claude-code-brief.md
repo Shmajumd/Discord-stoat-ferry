@@ -1163,7 +1163,7 @@ Two buttons: `← Back` and `Start Migration →` (disabled if red status)
 
 #### Screen 3: Migrate (Live Progress)
 
-- **Phase indicator** showing which of the 11 phases is active (with checkmarks for completed ones)
+- **Phase indicator** showing which of the 12 phases is active (with checkmarks for completed ones)
 - **Per-channel progress bar** during the message phase — the longest phase by far
 - **Running totals:** messages sent, attachments uploaded, errors, warnings
 - **Live log stream** (scrollable, auto-scrolls to bottom)
