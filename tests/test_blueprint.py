@@ -1,5 +1,6 @@
 """Tests for server blueprint export/import."""
 
+import importlib.resources
 from pathlib import Path
 
 from discord_ferry.blueprint import (
@@ -116,3 +117,36 @@ def test_role_defaults(tmp_path: Path) -> None:
     assert loaded.roles[0].colour == 0
     assert loaded.roles[0].permissions == 0
     assert loaded.roles[0].rank == 0
+
+
+def test_gaming_template_parses() -> None:
+    """Gaming preset template loads as a valid ServerBlueprint."""
+    templates_dir = importlib.resources.files("discord_ferry.templates")
+    gaming_path = templates_dir / "gaming.json"
+    bp = import_blueprint(Path(str(gaming_path)))
+    assert bp.name == "Gaming Server"
+    assert len(bp.roles) >= 2
+    assert len(bp.categories) >= 3
+    # Verify at least one voice channel
+    voice_channels = [ch for cat in bp.categories for ch in cat.channels if ch.type == "Voice"]
+    assert len(voice_channels) >= 1
+
+
+def test_community_template_parses() -> None:
+    """Community preset template loads as a valid ServerBlueprint."""
+    templates_dir = importlib.resources.files("discord_ferry.templates")
+    community_path = templates_dir / "community.json"
+    bp = import_blueprint(Path(str(community_path)))
+    assert bp.name == "Community Server"
+    assert len(bp.roles) >= 2
+    assert len(bp.categories) >= 3
+
+
+def test_education_template_parses() -> None:
+    """Education preset template loads as a valid ServerBlueprint."""
+    templates_dir = importlib.resources.files("discord_ferry.templates")
+    education_path = templates_dir / "education.json"
+    bp = import_blueprint(Path(str(education_path)))
+    assert bp.name == "Education Server"
+    assert len(bp.roles) >= 2
+    assert any("course" in cat.name.lower() for cat in bp.categories)
