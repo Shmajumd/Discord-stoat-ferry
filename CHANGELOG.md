@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Update README "How It Works" to reflect 1-Click Migration as the default workflow.
 - Update GUI walkthrough: rewrite Setup screen for two-mode layout, add Export screen docs, fix phase count (11 → 12).
 - Fix stale "11 phases" references in first-migration guide and brief.
+- Add "What is Stoat?" section to README with signup and setup links.
+- Explain what credentials are needed and where to find them in README Step 1.
+- Replace jargon "masquerade" with plain language in all user-facing docs.
+- Fix "Stoat bot token" → "Stoat user token" in first-migration prerequisites.
 
 ## [1.2.1] — 2026-03-01
 

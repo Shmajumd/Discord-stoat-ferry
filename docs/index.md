@@ -11,7 +11,7 @@ One-click app for Windows and Mac. CLI for Linux. No coding required.
 ## Get Started in 3 Steps
 
 1. **[Install Ferry](getting-started/install.md)** — download the app for Windows, macOS, or Linux
-2. **[Set up Stoat](getting-started/setup-stoat.md)** — create your destination server and get a bot token
+2. **[Set up Stoat](getting-started/setup-stoat.md)** — find your Stoat API URL and user token (new to Stoat? [Create a free account](https://app.stoat.chat))
 3. **[Run your first migration](getting-started/first-migration.md)** — enter your Discord and Stoat credentials, click Migrate
 
 Already have DCE exports? See [Offline Migration](getting-started/export-discord.md) to skip the export step.
@@ -39,7 +39,7 @@ Ferry can **pause and resume** — close it anytime and pick up where you left o
 | Text channels | Supported |
 | Categories | Supported |
 | Roles (with colours) | Supported |
-| Messages + author names | Supported (via masquerade) |
+| Messages + author names | Supported (each message shows the original author's name and avatar) |
 | File attachments | Supported |
 | Custom emoji | Supported (up to 100) |
 | Pinned messages | Supported |

@@ -13,7 +13,7 @@ Before you start, confirm you have these ready:
 - [ ] Your Discord user token ([how to find it](https://github.com/Tyrrrz/DiscordChatExporter/wiki/Obtaining-Token))
 - [ ] Your Discord server ID (right-click the server name > Copy Server ID)
 - [ ] Your Stoat API URL (`https://api.stoat.chat` for the official host)
-- [ ] Your Stoat bot token (from your Stoat account settings)
+- [ ] Your Stoat user token ([how to find it](setup-stoat.md#2-get-your-stoat-user-token))
 
 **For Offline Migration (advanced):**
 
@@ -246,7 +246,7 @@ After a successful migration:
 - All channels and categories are created in the same structure as Discord
 - Forum posts are grouped into dedicated categories named after the parent forum
 - Roles are recreated with colours and rank ordering preserved
-- Messages appear under the original author's name (using Stoat's masquerade feature)
+- Messages appear under the original author's name and avatar, so conversations look natural
 - Original timestamps appear at the start of each message: `*[2024-01-15 14:30 UTC]*`
 - Embeds are preserved with uploaded thumbnails and images
 - Polls are rendered as formatted text in the message body

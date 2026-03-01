@@ -100,7 +100,7 @@ If you are running Ferry with an account that is not the server owner, that acco
 | ManageChannel | Creating and editing channels |
 | ManageServer | Editing server settings and categories |
 | ManagePermissions | Setting channel permission overrides |
-| ManageRole | Applying masquerade colour to messages |
+| ManageRole | Displaying original author names with colours |
 | ManageCustomisation | Uploading custom emoji |
 | ViewChannel | Reading channels |
 | ReadMessageHistory | Reading message history |
@@ -108,7 +108,7 @@ If you are running Ferry with an account that is not the server owner, that acco
 | ManageMessages | Pinning messages |
 | SendEmbeds | Sending embed content |
 | UploadFiles | Uploading attachments |
-| Masquerade | Sending messages with a different display name and avatar |
+| Masquerade | Showing each message under its original Discord author's name and avatar |
 | React | Adding reactions |
 
 The simplest approach is to use the server owner's token and avoid this list entirely.

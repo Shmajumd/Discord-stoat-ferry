@@ -104,14 +104,14 @@ If you are using an existing server (Option B), create a role with these permiss
 
 | Permission | Purpose |
 |---|---|
-| ManageRole | Required for masquerade (username spoofing for author names) |
+| ManageRole | Required to display original author names with colours |
 | ViewChannel | Required to access channels |
 | ReadMessageHistory | Required to read existing messages |
 | SendMessage | Required to post migrated messages |
 | ManageMessages | Required to pin messages |
 | SendEmbeds | Required to send rich message embeds |
 | UploadFiles | Required to upload attachments |
-| Masquerade | Required to set per-message author name and avatar |
+| Masquerade | Required to show each message under its original Discord author's name and avatar |
 | React | Required to add reactions |
 
 !!! warning "There is no single 'Administrator' permission in Stoat"

@@ -17,11 +17,23 @@
 
 ---
 
+## What is Stoat?
+
+[Stoat](https://stoat.chat) (formerly Revolt) is an open-source chat platform — like Discord, but self-hostable and community-owned. Ferry moves your entire Discord server there.
+
+New to Stoat? [Create a free account](https://app.stoat.chat) or [self-host your own instance](docs/getting-started/setup-stoat.md).
+
+---
+
 ## How It Works
 
-### Step 1: Enter your tokens
+### Step 1: Enter your credentials
 
-Launch Ferry, paste your Discord token and server ID, then your Stoat URL and token.
+Launch Ferry. You'll need four things:
+
+- **Discord user token** + **server ID** — Ferry shows you how to find these
+- **Stoat API URL** — `https://api.stoat.chat` for the official service, or your own domain if self-hosted
+- **Stoat user token** — found in your browser's developer tools ([step-by-step guide](docs/getting-started/setup-stoat.md))
 
 ### Step 2: Ferry exports your server automatically
 
@@ -30,7 +42,7 @@ Ferry downloads and runs DiscordChatExporter behind the scenes — no manual ste
 ### Step 3: Click Migrate
 
 Messages, channels, roles, emoji, and attachments migrate to Stoat.
-Original authors appear via masquerade. Pins are preserved.
+Each message shows the original author's name and avatar. Pins are preserved.
 
 > Already have DCE exports? Ferry also supports [offline mode](docs/getting-started/export-discord.md) — just point it at your export folder.
 
@@ -54,7 +66,7 @@ Ferry can **pause and resume** — close it anytime, pick up where you left off.
 | Text channels | Supported |
 | Categories | Supported |
 | Roles (with colours) | Supported |
-| Messages + author names | Supported (via masquerade) |
+| Messages + author names | Supported (each message shows the original author's name and avatar) |
 | File attachments | Supported |
 | Custom emoji | Supported (up to 100) |
 | Pinned messages | Supported |
