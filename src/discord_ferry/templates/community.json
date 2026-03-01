@@ -1,0 +1,43 @@
+{
+  "name": "Community Server",
+  "description": "A general-purpose community server with discussion and social channels",
+  "roles": [
+    {"name": "Admin", "colour": 15158332, "permissions": 15, "rank": 3},
+    {"name": "Moderator", "colour": 3066993, "permissions": 12, "rank": 2},
+    {"name": "Regular", "colour": 10181046, "permissions": 0, "rank": 1}
+  ],
+  "categories": [
+    {
+      "name": "Information",
+      "channels": [
+        {"name": "welcome", "type": "Text", "nsfw": false},
+        {"name": "rules", "type": "Text", "nsfw": false},
+        {"name": "announcements", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "Discussion",
+      "channels": [
+        {"name": "general", "type": "Text", "nsfw": false},
+        {"name": "questions", "type": "Text", "nsfw": false},
+        {"name": "suggestions", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "Social",
+      "channels": [
+        {"name": "introductions", "type": "Text", "nsfw": false},
+        {"name": "off-topic", "type": "Text", "nsfw": false},
+        {"name": "media-sharing", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "Voice",
+      "channels": [
+        {"name": "General Voice", "type": "Voice", "nsfw": false},
+        {"name": "Chill Zone", "type": "Voice", "nsfw": false}
+      ]
+    }
+  ],
+  "uncategorized_channels": []
+}

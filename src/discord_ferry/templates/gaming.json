@@ -1,0 +1,44 @@
+{
+  "name": "Gaming Server",
+  "description": "A server for gaming communities with voice channels and game-specific areas",
+  "roles": [
+    {"name": "Admin", "colour": 15158332, "permissions": 15, "rank": 3},
+    {"name": "Moderator", "colour": 3447003, "permissions": 12, "rank": 2},
+    {"name": "Member", "colour": 0, "permissions": 0, "rank": 1}
+  ],
+  "categories": [
+    {
+      "name": "Welcome",
+      "channels": [
+        {"name": "rules", "type": "Text", "nsfw": false},
+        {"name": "introductions", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "General",
+      "channels": [
+        {"name": "general", "type": "Text", "nsfw": false},
+        {"name": "memes", "type": "Text", "nsfw": false},
+        {"name": "off-topic", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "Gaming",
+      "channels": [
+        {"name": "looking-for-group", "type": "Text", "nsfw": false},
+        {"name": "game-chat", "type": "Text", "nsfw": false},
+        {"name": "clips-and-highlights", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "Voice",
+      "channels": [
+        {"name": "General Voice", "type": "Voice", "nsfw": false},
+        {"name": "Gaming 1", "type": "Voice", "nsfw": false},
+        {"name": "Gaming 2", "type": "Voice", "nsfw": false},
+        {"name": "AFK", "type": "Voice", "nsfw": false}
+      ]
+    }
+  ],
+  "uncategorized_channels": []
+}

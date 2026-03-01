@@ -1,0 +1,44 @@
+{
+  "name": "Education Server",
+  "description": "A server for educational communities with course-style channels",
+  "roles": [
+    {"name": "Instructor", "colour": 15105570, "permissions": 15, "rank": 3},
+    {"name": "Teaching Assistant", "colour": 3447003, "permissions": 12, "rank": 2},
+    {"name": "Student", "colour": 0, "permissions": 0, "rank": 1}
+  ],
+  "categories": [
+    {
+      "name": "Course Info",
+      "channels": [
+        {"name": "syllabus", "type": "Text", "nsfw": false},
+        {"name": "announcements", "type": "Text", "nsfw": false},
+        {"name": "resources", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "Coursework",
+      "channels": [
+        {"name": "lectures", "type": "Text", "nsfw": false},
+        {"name": "assignments", "type": "Text", "nsfw": false},
+        {"name": "discussion", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "Study Groups",
+      "channels": [
+        {"name": "study-chat", "type": "Text", "nsfw": false},
+        {"name": "homework-help", "type": "Text", "nsfw": false}
+      ]
+    },
+    {
+      "name": "Voice",
+      "channels": [
+        {"name": "Lecture Hall", "type": "Voice", "nsfw": false},
+        {"name": "Study Room 1", "type": "Voice", "nsfw": false},
+        {"name": "Study Room 2", "type": "Voice", "nsfw": false},
+        {"name": "Office Hours", "type": "Voice", "nsfw": false}
+      ]
+    }
+  ],
+  "uncategorized_channels": []
+}

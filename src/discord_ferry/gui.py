@@ -21,7 +21,7 @@ from discord_ferry.state import load_state
 
 _HAS_WEBVIEW = False
 try:
-    import webview  # type: ignore[import-not-found]
+    import webview  # type: ignore[import-not-found,unused-ignore]
 
     _HAS_WEBVIEW = True
 except ImportError:
@@ -58,6 +58,7 @@ _STATUS_COLOUR: dict[str, str] = {
     "skipped": "grey",
     "error": "red",
     "warning": "orange",
+    "confirm": "amber",
 }
 
 _OFFICIAL_STOAT_URL = "https://api.stoat.chat"
@@ -988,6 +989,61 @@ def migrate_page() -> None:
             except Exception as exc:
                 ui.notify(f"Could not open report: {exc}", type="negative")
 
+    def _show_review_dialog(detail: dict[str, object]) -> None:
+        """Show a blocking review dialog with migration summary."""
+        with ui.dialog() as review_dialog, ui.card().classes("w-96"):
+            ui.label("Pre-Migration Review").classes("text-xl font-bold mb-4")
+
+            with ui.column().classes("gap-1 w-full"):
+                ui.label(f"Server: {detail.get('server_name', '')}").classes("font-medium")
+                ui.separator()
+                items = [
+                    ("Roles", detail.get("roles", 0)),
+                    ("Categories", detail.get("categories", 0)),
+                    ("Channels", detail.get("channels", 0)),
+                    ("Emoji", detail.get("emoji", 0)),
+                    ("Messages", f"{detail.get('messages', 0):,}"),
+                    ("Threads", detail.get("threads", 0)),
+                ]
+                for label, value in items:
+                    with ui.row().classes("justify-between w-full"):
+                        ui.label(label)
+                        ui.label(str(value)).classes("font-medium")
+
+                perm_text = "Yes" if detail.get("has_permissions") else "No"
+                with ui.row().classes("justify-between w-full"):
+                    ui.label("Permissions")
+                    ui.label(perm_text).classes("font-medium")
+
+                nsfw = detail.get("nsfw_channels", 0)
+                if nsfw:
+                    with ui.row().classes("justify-between w-full"):
+                        ui.label("NSFW Channels")
+                        ui.label(str(nsfw)).classes("font-medium")
+
+                warnings_list = detail.get("warnings", [])
+                if isinstance(warnings_list, list) and warnings_list:
+                    ui.separator()
+                    for w in warnings_list:
+                        ui.label(f"⚠ {w}").classes("text-amber-600 text-sm")
+
+            ui.separator()
+            with ui.row().classes("justify-end gap-2 mt-2"):
+
+                def _cancel() -> None:
+                    cancel_event.set()
+                    pause_event.set()  # Unblock engine so it can check cancel
+                    review_dialog.close()
+
+                def _proceed() -> None:
+                    pause_event.set()  # Unblock engine
+                    review_dialog.close()
+
+                ui.button("Cancel", on_click=_cancel).classes("bg-gray-400 text-white")
+                ui.button("Proceed", on_click=_proceed).classes("bg-blue-600 text-white")
+
+        review_dialog.open()
+
     # ---------------------------------------------------------------------------
     # Event callback (called from the async engine, on the NiceGUI event loop)
     # ---------------------------------------------------------------------------
@@ -1017,6 +1073,7 @@ def migrate_page() -> None:
                 "started": " ●",
                 "progress": " ●",
                 "warning": " ⚠",
+                "confirm": " ?",
             }.get(event.status, "")
             chip.set_text(f"{base_label}{indicator}")
 
@@ -1048,6 +1105,9 @@ def migrate_page() -> None:
                     _on_migration_complete()
                 else:
                     progress_bar.set_value((PHASE_ORDER.index(event.phase) + 1) / len(PHASE_ORDER))
+            case "confirm":
+                if event.detail:
+                    _show_review_dialog(event.detail)
 
         log_display.push(f"[{event.phase}] {event.status}: {event.message}")
 

@@ -401,3 +401,59 @@ def test_migrate_offline_no_tos_prompt(runner: CliRunner) -> None:
         )
     assert result.exit_code == 0
     assert "Terms of Service" not in result.output
+
+
+# ---------------------------------------------------------------------------
+# Build command
+# ---------------------------------------------------------------------------
+
+
+def test_build_help(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["build", "--help"])
+    assert result.exit_code == 0
+    assert "--template" in result.output
+    assert "--blueprint" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Export-blueprint command
+# ---------------------------------------------------------------------------
+
+
+def test_export_blueprint_help(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["export-blueprint", "--help"])
+    assert result.exit_code == 0
+    assert "--from" in result.output
+    assert "--output" in result.output
+
+
+# ---------------------------------------------------------------------------
+# _ProgressTracker — confirm event
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_event_handled() -> None:
+    """Sending a confirm event to _ProgressTracker must not raise."""
+    from discord_ferry.cli import _ProgressTracker
+    from discord_ferry.core.events import MigrationEvent
+
+    tracker = _ProgressTracker(verbose=False)
+    event = MigrationEvent(
+        phase="VALIDATE",
+        status="confirm",
+        message="Pre-migration review",
+        detail={
+            "server_name": "Test Server",
+            "roles": 3,
+            "categories": 2,
+            "channels": 10,
+            "emoji": 5,
+            "messages": 1000,
+            "threads": 1,
+            "has_permissions": True,
+            "nsfw_channels": 0,
+            "warnings": ["Some warning"],
+        },
+    )
+    # Should not raise
+    tracker.on_event(event)

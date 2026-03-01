@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
+import aiohttp
 import click
 from dotenv import load_dotenv
 from rich.console import Console
@@ -35,6 +36,7 @@ _STATUS_ICONS: dict[str, str] = {
     "skipped": "--",
     "error": "!!",
     "warning": ">>",
+    "confirm": "??",
 }
 
 
@@ -166,6 +168,35 @@ class _ProgressTracker:
                 self.warning_count += 1
                 if self.verbose:
                     self._log(f"[yellow][!!][/] {event.phase}: {event.message}")
+            case "confirm":
+                # Print review summary and ask for confirmation
+                if event.detail:
+                    self._log("\n[bold]Pre-Migration Review[/]")
+                    review_table = Table(show_header=True, header_style="bold")
+                    review_table.add_column("Item", style="cyan")
+                    review_table.add_column("Count", justify="right")
+                    detail = event.detail
+                    review_table.add_row("Server Name", str(detail.get("server_name", "")))
+                    review_table.add_row("Roles", str(detail.get("roles", 0)))
+                    review_table.add_row("Categories", str(detail.get("categories", 0)))
+                    review_table.add_row("Channels", str(detail.get("channels", 0)))
+                    review_table.add_row("Emoji", str(detail.get("emoji", 0)))
+                    review_table.add_row("Messages", f"{detail.get('messages', 0):,}")
+                    review_table.add_row("Threads", str(detail.get("threads", 0)))
+                    review_table.add_row(
+                        "Permissions", "Yes" if detail.get("has_permissions") else "No"
+                    )
+                    if detail.get("nsfw_channels"):
+                        review_table.add_row("NSFW Channels", str(detail.get("nsfw_channels", 0)))
+                    self._log("")
+                    console.print(review_table)
+                    raw_warnings = detail.get("warnings")
+                    warnings_list: list[object] = (
+                        raw_warnings if isinstance(raw_warnings, list) else []
+                    )
+                    for w in warnings_list:
+                        self._log(f"  [yellow]Warning: {w}[/]")
+                self._log("")
             case "progress":
                 if event.total > 0:
                     self.messages_sent = event.current
@@ -398,6 +429,201 @@ def validate(export_dir: str, rate_limit: float) -> None:
         sys.exit(1)
     else:
         console.print("[bold green]Export looks good.[/]")
+
+
+@main.command()
+@click.option(
+    "--template",
+    type=click.Choice(["gaming", "community", "education"]),
+    default=None,
+    help="Use a preset server template",
+)
+@click.option(
+    "--blueprint",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to a blueprint JSON file",
+)
+@click.option("--stoat-url", envvar="STOAT_URL", required=True, help="Stoat API base URL")
+@click.option("--token", envvar="STOAT_TOKEN", required=True, help="Stoat user/bot token")
+@click.option("--name", default=None, help="Override server name from blueprint")
+def build(
+    template: str | None,
+    blueprint: str | None,
+    stoat_url: str,
+    token: str,
+    name: str | None,
+) -> None:
+    """Build a Stoat server from a template or blueprint."""
+    import importlib.resources
+
+    from discord_ferry.blueprint import ServerBlueprint, import_blueprint
+    from discord_ferry.migrator.api import (
+        api_create_category,
+        api_create_channel,
+        api_create_role,
+        api_create_server,
+        api_edit_category,
+        api_edit_role,
+        api_set_role_permissions,
+    )
+
+    if not template and not blueprint:
+        console.print("[bold red]Error:[/] Provide --template or --blueprint")
+        sys.exit(1)
+    if template and blueprint:
+        console.print("[bold red]Error:[/] Use either --template or --blueprint, not both")
+        sys.exit(1)
+
+    bp: ServerBlueprint
+    if template:
+        templates_dir = importlib.resources.files("discord_ferry.templates")
+        bp = import_blueprint(Path(str(templates_dir / f"{template}.json")))
+    else:
+        bp = import_blueprint(Path(blueprint))  # type: ignore[arg-type]
+
+    if name:
+        bp.name = name
+
+    console.print(f"[bold]Discord Ferry[/] — building server '{bp.name}'\n")
+
+    async def _build() -> None:
+        async with aiohttp.ClientSession() as session:
+            # Create server
+            result = await api_create_server(session, stoat_url, token, bp.name)
+            server_id = result["_id"]
+            console.print(f"  Created server '{bp.name}' ({server_id})")
+
+            # Create roles
+            for role in bp.roles:
+                role_result = await api_create_role(session, stoat_url, token, server_id, role.name)
+                role_id = role_result["id"]
+                if role.colour:
+                    await api_edit_role(
+                        session, stoat_url, token, server_id, role_id, colour=role.colour
+                    )
+                if role.permissions:
+                    await api_set_role_permissions(
+                        session,
+                        stoat_url,
+                        token,
+                        server_id,
+                        role_id,
+                        allow=role.permissions,
+                        deny=0,
+                    )
+                console.print(f"  Created role '{role.name}'")
+
+            # Create categories and channels
+            for category in bp.categories:
+                cat_result = await api_create_category(
+                    session, stoat_url, token, server_id, category.name
+                )
+                cat_id = cat_result["id"]
+                channel_ids: list[str] = []
+                for ch in category.channels:
+                    ch_result = await api_create_channel(
+                        session,
+                        stoat_url,
+                        token,
+                        server_id,
+                        name=ch.name,
+                        channel_type=ch.type,
+                        nsfw=ch.nsfw,
+                    )
+                    channel_ids.append(ch_result["_id"])
+                    console.print(f"  Created channel '{ch.name}' in '{category.name}'")
+                if channel_ids:
+                    await api_edit_category(
+                        session, stoat_url, token, server_id, cat_id, channel_ids
+                    )
+
+            # Create uncategorized channels
+            for ch in bp.uncategorized_channels:
+                await api_create_channel(
+                    session,
+                    stoat_url,
+                    token,
+                    server_id,
+                    name=ch.name,
+                    channel_type=ch.type,
+                    nsfw=ch.nsfw,
+                )
+                console.print(f"  Created channel '{ch.name}'")
+
+            console.print(f"\n[bold green]Done![/] Server '{bp.name}' created ({server_id})")
+
+    try:
+        asyncio.run(_build())
+    except MigrationError as exc:
+        console.print(f"\n[bold red]Build failed:[/] {exc}")
+        sys.exit(1)
+
+
+@main.command(name="export-blueprint")
+@click.option(
+    "--from",
+    "from_dir",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to DCE export directory to convert",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    required=True,
+    help="Output path for the blueprint JSON file",
+)
+@click.option("--name", default=None, help="Override server name in blueprint")
+def export_blueprint_cmd(from_dir: str, output: str, name: str | None) -> None:
+    """Export a DCE export directory as a reusable blueprint."""
+    from discord_ferry.blueprint import (
+        BlueprintCategory,
+        BlueprintChannel,
+        ServerBlueprint,
+        export_blueprint,
+    )
+
+    exports = parse_export_directory(Path(from_dir))
+    if not exports:
+        console.print("[bold red]Error:[/] No valid DCE JSON files found.")
+        sys.exit(1)
+
+    guild_name = name or exports[0].guild.name
+
+    # Collect categories and channels
+    categories: dict[str, list[BlueprintChannel]] = {}
+    uncategorized: list[BlueprintChannel] = []
+
+    for export in exports:
+        ch = export.channel
+        if ch.type == 4:  # Skip category-type channels
+            continue
+        stoat_type = "Voice" if ch.type == 2 else "Text"
+        bp_channel = BlueprintChannel(name=ch.name, type=stoat_type)
+
+        if ch.category:
+            categories.setdefault(ch.category, []).append(bp_channel)
+        else:
+            uncategorized.append(bp_channel)
+
+    bp = ServerBlueprint(
+        name=guild_name,
+        description=f"Exported from Discord server '{guild_name}'",
+        categories=[
+            BlueprintCategory(name=cat_name, channels=channels)
+            for cat_name, channels in categories.items()
+        ],
+        uncategorized_channels=uncategorized,
+    )
+
+    export_blueprint(bp, Path(output))
+    console.print(
+        f"[bold green]Blueprint exported[/] to {output} "
+        f"({len(bp.categories)} categories, "
+        f"{sum(len(c.channels) for c in bp.categories) + len(uncategorized)} channels)"
+    )
 
 
 if __name__ == "__main__":
