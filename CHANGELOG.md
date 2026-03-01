@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-03-01
+
+### Added
+
+- **Discord permission migration**: Fetches guild roles and channels via Discord REST API, translates permission bitfields from Discord bit space to Stoat bit space, and applies role permissions during Phase 4 (ROLES). ADMINISTRATOR expands to all individual Stoat permissions.
+- **Channel permission overrides**: Per-role and @everyone channel overrides fetched from Discord API and applied during Phase 6 (CHANNELS).
+- **NSFW flag migration**: Channel NSFW status fetched from Discord API and set during channel creation.
+- **Pre-creation review**: Blocking confirmation step shows summary (roles, channels, categories, emoji, messages) and warnings before creating anything on Stoat. GUI shows dialog; CLI shows Rich table.
+- **Post-migration checklist**: Enhanced report includes actionable next steps (verify channels, review permissions, check emoji, invite members).
+- **Server blueprint export/import**: `ferry export-blueprint` converts a DCE export directory into a reusable JSON blueprint. `ferry build` creates a Stoat server from a blueprint or preset template.
+- **3 preset server templates**: Gaming, Community, and Education — each with roles, permissions, categories, and channels.
+- **Discord metadata persistence**: `discord_metadata.json` stores translated permissions and NSFW flags alongside `state.json` for resume support.
+- **4 new Stoat API functions**: `api_set_role_permissions`, `api_set_server_default_permissions`, `api_set_channel_role_permissions`, `api_set_channel_default_permissions`.
+- **64 new tests**: permissions (10), metadata (5), Discord client (6), API (4), structure (8), engine (4), review (10), reporter (4), blueprint (9), CLI (3), GUI (2) — 426 total passing.
+
 ### Fixed
 
 - Remove hardcoded local path from `.claude/settings.json` for open-source readiness.
@@ -16,6 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Explain what credentials are needed and where to find them in README Step 1.
 - Replace jargon "masquerade" with plain language in all user-facing docs.
 - Fix "Stoat bot token" → "Stoat user token" in first-migration prerequisites.
+- Fix channel @everyone permission overrides silently dropped during migration.
+- Fix `ferry build` NameError when printing completion message.
+- Fix PyInstaller binary missing template JSON files.
 
 ## [1.2.1] — 2026-03-01
 

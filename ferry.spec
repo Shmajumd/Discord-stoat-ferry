@@ -38,7 +38,9 @@ ferry_imports = collect_submodules("discord_ferry")
 # Aggregate
 # ---------------------------------------------------------------------------
 
-all_datas = nicegui_datas + aiohttp_datas + webview_datas
+all_datas = nicegui_datas + aiohttp_datas + webview_datas + [
+    ("src/discord_ferry/templates/*.json", "discord_ferry/templates"),
+]
 all_binaries = nicegui_bins + aiohttp_bins + webview_bins
 all_hiddenimports = (
     nicegui_imports

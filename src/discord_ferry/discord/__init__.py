@@ -58,19 +58,27 @@ async def fetch_and_translate_guild_metadata(
     # Build channel metadata (filter user overrides, translate permissions)
     channel_metadata: dict[str, ChannelMeta] = {}
     for channel in channels:
+        default_override: PermissionPair | None = None
         role_overrides: list[RoleOverride] = []
         for ow in channel.permission_overwrites:
             if ow.type == 1:  # User override — Stoat doesn't support these
                 continue
-            role_overrides.append(
-                RoleOverride(
-                    discord_role_id=ow.id,
+            if ow.id == guild_id:  # @everyone channel override → default_override
+                default_override = PermissionPair(
                     allow=translate_permissions(ow.allow),
                     deny=translate_permissions(ow.deny),
                 )
-            )
+            else:
+                role_overrides.append(
+                    RoleOverride(
+                        discord_role_id=ow.id,
+                        allow=translate_permissions(ow.allow),
+                        deny=translate_permissions(ow.deny),
+                    )
+                )
         channel_metadata[channel.id] = ChannelMeta(
             nsfw=channel.nsfw,
+            default_override=default_override,
             role_overrides=role_overrides,
         )
 

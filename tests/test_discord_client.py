@@ -170,6 +170,8 @@ async def test_fetch_and_translate_metadata(mock_discord: aioresponses) -> None:
                 "permission_overwrites": [
                     {"id": "role1", "type": 0, "allow": str(1 << 11), "deny": "0"},
                     {"id": "user1", "type": 1, "allow": str(1 << 11), "deny": "0"},  # user override
+                    # @everyone channel override (id == guild_id)
+                    {"id": guild_id, "type": 0, "allow": "0", "deny": str(1 << 10)},
                 ],
             },
             {"id": "ch2", "name": "nsfw-ch", "type": 0, "nsfw": True, "permission_overwrites": []},
@@ -195,6 +197,14 @@ async def test_fetch_and_translate_metadata(mock_discord: aioresponses) -> None:
     assert meta.channel_metadata["ch1"].nsfw is False
     assert meta.channel_metadata["ch2"].nsfw is True
 
-    # Only role overrides kept (user override type=1 filtered out)
+    # Only role overrides kept (user override type=1 filtered out, @everyone → default_override)
     assert len(meta.channel_metadata["ch1"].role_overrides) == 1
     assert meta.channel_metadata["ch1"].role_overrides[0].discord_role_id == "role1"
+
+    # @everyone channel override extracted as default_override (VIEW_CHANNEL denied → bit 20)
+    assert meta.channel_metadata["ch1"].default_override is not None
+    assert meta.channel_metadata["ch1"].default_override.allow == 0
+    assert meta.channel_metadata["ch1"].default_override.deny == (1 << 20)
+
+    # Channel without @everyone override has no default_override
+    assert meta.channel_metadata["ch2"].default_override is None

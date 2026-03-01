@@ -551,7 +551,7 @@ def build(
                 )
                 console.print(f"  Created channel '{ch.name}'")
 
-        console.print(f"\n[bold green]Done![/] Server '{bp.name}' created ({server_id})")
+            console.print(f"\n[bold green]Done![/] Server '{bp.name}' created ({server_id})")
 
     try:
         asyncio.run(_build())
