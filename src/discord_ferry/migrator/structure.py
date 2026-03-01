@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from discord_ferry.core.events import MigrationEvent
+from discord_ferry.discord.metadata import load_discord_metadata
 from discord_ferry.errors import MigrationError
 from discord_ferry.migrator.api import (
     api_create_category,
@@ -18,6 +19,8 @@ from discord_ferry.migrator.api import (
     api_edit_role,
     api_edit_server,
     api_fetch_server,
+    api_set_role_permissions,
+    api_set_server_default_permissions,
     get_session,
 )
 from discord_ferry.parser.dce_parser import stream_messages
@@ -333,6 +336,58 @@ async def run_roles(
                         "message": (f"Failed to set rank for role '{role.name}': {exc}"),
                     }
                 )
+
+    # Third pass: apply translated permissions from Discord metadata.
+    discord_metadata = load_discord_metadata(config.output_dir)
+    if discord_metadata and not config.dry_run:
+        async with get_session(config) as session:
+            for role in roles_to_create:
+                stoat_role_id_or_none = state.role_map.get(role.id)
+                if not stoat_role_id_or_none:
+                    continue
+                stoat_role_id = stoat_role_id_or_none
+                role_perms = discord_metadata.role_permissions.get(role.id)
+                if role_perms:
+                    try:
+                        await api_set_role_permissions(
+                            session,
+                            config.stoat_url,
+                            config.token,
+                            state.stoat_server_id,
+                            stoat_role_id,
+                            allow=role_perms.allow,
+                            deny=role_perms.deny,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        state.warnings.append(
+                            {
+                                "phase": "roles",
+                                "type": "role_permissions_failed",
+                                "message": (
+                                    f"Failed to set permissions for role '{role.name}': {exc}"
+                                ),
+                            }
+                        )
+
+            # Apply @everyone server default permissions (merged with ferry minimum).
+            if discord_metadata.server_default_permissions:
+                merged = discord_metadata.server_default_permissions | FERRY_MIN_PERMISSIONS
+                try:
+                    await api_set_server_default_permissions(
+                        session,
+                        config.stoat_url,
+                        config.token,
+                        state.stoat_server_id,
+                        permissions=merged,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    state.warnings.append(
+                        {
+                            "phase": "roles",
+                            "type": "server_default_permissions_failed",
+                            "message": f"Failed to set server default permissions: {exc}",
+                        }
+                    )
 
     on_event(
         MigrationEvent(

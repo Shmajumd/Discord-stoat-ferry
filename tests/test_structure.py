@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING
 from aioresponses import aioresponses
 
 from discord_ferry.config import FerryConfig
+from discord_ferry.discord.metadata import DiscordMetadata, PermissionPair, save_discord_metadata
 from discord_ferry.migrator.structure import (
+    FERRY_MIN_PERMISSIONS,
     make_unique_channel_name,
     run_categories,
     run_channels,
@@ -627,6 +629,131 @@ async def test_run_roles_rank_failure_is_non_fatal(tmp_path: Path) -> None:
     assert state.role_map["r1"] == "stoat-r1"
     rank_warnings = [w for w in state.warnings if "rank" in w["message"].lower()]
     assert len(rank_warnings) > 0
+
+
+async def test_run_roles_applies_permissions(tmp_path: Path) -> None:
+    """ROLES phase applies Discord permissions from metadata."""
+    events: list[MigrationEvent] = []
+    config = _make_config(tmp_path)
+    state = MigrationState(stoat_server_id="srv1")
+
+    meta = DiscordMetadata(
+        guild_id="111",
+        fetched_at="t",
+        server_default_permissions=0,
+        role_permissions={"r1": PermissionPair(allow=4_194_304, deny=0)},
+        channel_metadata={},
+    )
+    save_discord_metadata(meta, tmp_path)
+
+    role = DCERole(id="r1", name="Mod")
+    exports = [_make_export(guild_id="111", messages=[_make_message("m1", roles=[role])])]
+
+    perm_bodies: list[dict[str, object]] = []
+
+    with aioresponses() as m:
+        m.post(f"{STOAT_URL}/servers/srv1/roles", payload={"id": "stoat-r1", "name": "Mod"})
+        m.put(
+            f"{STOAT_URL}/servers/srv1/permissions/stoat-r1",
+            payload={},
+            callback=lambda url, **kwargs: perm_bodies.append(  # type: ignore[misc]
+                kwargs.get("json", {})
+            ),
+        )
+        await run_roles(config, state, exports, events.append)
+
+    assert len(perm_bodies) == 1
+    assert perm_bodies[0] == {"permissions": {"allow": 4_194_304, "deny": 0}}
+
+
+async def test_run_roles_applies_server_defaults(tmp_path: Path) -> None:
+    """ROLES phase applies server default permissions merged with FERRY_MIN_PERMISSIONS."""
+    events: list[MigrationEvent] = []
+    config = _make_config(tmp_path)
+    state = MigrationState(stoat_server_id="srv1")
+
+    discord_default = 4_194_304  # SendMessage only
+    meta = DiscordMetadata(
+        guild_id="111",
+        fetched_at="t",
+        server_default_permissions=discord_default,
+        role_permissions={},
+        channel_metadata={},
+    )
+    save_discord_metadata(meta, tmp_path)
+
+    role = DCERole(id="r1", name="Mod")
+    exports = [_make_export(guild_id="111", messages=[_make_message("m1", roles=[role])])]
+
+    default_perm_bodies: list[dict[str, object]] = []
+
+    with aioresponses() as m:
+        m.post(f"{STOAT_URL}/servers/srv1/roles", payload={"id": "stoat-r1", "name": "Mod"})
+        m.put(
+            f"{STOAT_URL}/servers/srv1/permissions/default",
+            payload={},
+            callback=lambda url, **kwargs: default_perm_bodies.append(  # type: ignore[misc]
+                kwargs.get("json", {})
+            ),
+        )
+        await run_roles(config, state, exports, events.append)
+
+    assert len(default_perm_bodies) == 1
+    expected = discord_default | FERRY_MIN_PERMISSIONS
+    assert default_perm_bodies[0] == {"permissions": expected}
+
+
+async def test_run_roles_no_metadata_no_permissions(tmp_path: Path) -> None:
+    """ROLES phase makes no permission PUT calls when discord_metadata.json is absent."""
+    events: list[MigrationEvent] = []
+    config = _make_config(tmp_path)
+    state = MigrationState(stoat_server_id="srv1")
+
+    # No discord_metadata.json created in tmp_path.
+    role = DCERole(id="r1", name="Mod")
+    exports = [_make_export(messages=[_make_message("m1", roles=[role])])]
+
+    with aioresponses() as m:
+        m.post(f"{STOAT_URL}/servers/srv1/roles", payload={"id": "stoat-r1", "name": "Mod"})
+        # No PUT mocks registered — any unexpected PUT would raise.
+        await run_roles(config, state, exports, events.append)
+
+    assert state.role_map["r1"] == "stoat-r1"
+    # No permission-related warnings since no metadata existed.
+    perm_warnings = [w for w in state.warnings if "permissions" in w.get("type", "")]
+    assert len(perm_warnings) == 0
+
+
+async def test_run_roles_permission_failure_non_fatal(tmp_path: Path) -> None:
+    """ROLES phase logs a warning and does not raise when permission PUT fails."""
+    events: list[MigrationEvent] = []
+    config = _make_config(tmp_path)
+    state = MigrationState(stoat_server_id="srv1")
+
+    meta = DiscordMetadata(
+        guild_id="111",
+        fetched_at="t",
+        server_default_permissions=0,
+        role_permissions={"r1": PermissionPair(allow=4_194_304, deny=0)},
+        channel_metadata={},
+    )
+    save_discord_metadata(meta, tmp_path)
+
+    role = DCERole(id="r1", name="Mod")
+    exports = [_make_export(guild_id="111", messages=[_make_message("m1", roles=[role])])]
+
+    with aioresponses() as m:
+        m.post(f"{STOAT_URL}/servers/srv1/roles", payload={"id": "stoat-r1", "name": "Mod"})
+        # Permission PUT fails.
+        m.put(f"{STOAT_URL}/servers/srv1/permissions/stoat-r1", status=500)
+
+        # Should NOT raise.
+        await run_roles(config, state, exports, events.append)
+
+    assert state.role_map["r1"] == "stoat-r1"
+    perm_warnings = [w for w in state.warnings if w.get("type") == "role_permissions_failed"]
+    assert len(perm_warnings) == 1
+    assert "Mod" in perm_warnings[0]["message"]
 
 
 async def test_run_channels_skip_threads(tmp_path: Path) -> None:
