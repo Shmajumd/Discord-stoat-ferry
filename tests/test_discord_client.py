@@ -128,26 +128,51 @@ async def test_fetch_and_translate_metadata(mock_discord: aioresponses) -> None:
         f"{DISCORD_API}/guilds/{guild_id}/roles",
         payload=[
             # @everyone role (id == guild_id)
-            {"id": guild_id, "name": "@everyone", "permissions": str(1 << 11),
-             "position": 0, "color": 0, "hoist": False, "managed": False},
+            {
+                "id": guild_id,
+                "name": "@everyone",
+                "permissions": str(1 << 11),
+                "position": 0,
+                "color": 0,
+                "hoist": False,
+                "managed": False,
+            },
             # Normal role with MANAGE_CHANNELS
-            {"id": "role1", "name": "Mod", "permissions": str(1 << 4),
-             "position": 2, "color": 0, "hoist": False, "managed": False},
+            {
+                "id": "role1",
+                "name": "Mod",
+                "permissions": str(1 << 4),
+                "position": 2,
+                "color": 0,
+                "hoist": False,
+                "managed": False,
+            },
             # Bot-managed role — should be excluded from role_permissions
-            {"id": "role2", "name": "BotRole", "permissions": str(1 << 4),
-             "position": 1, "color": 0, "hoist": False, "managed": True},
+            {
+                "id": "role2",
+                "name": "BotRole",
+                "permissions": str(1 << 4),
+                "position": 1,
+                "color": 0,
+                "hoist": False,
+                "managed": True,
+            },
         ],
     )
     mock_discord.get(
         f"{DISCORD_API}/guilds/{guild_id}/channels",
         payload=[
-            {"id": "ch1", "name": "general", "type": 0, "nsfw": False,
-             "permission_overwrites": [
-                 {"id": "role1", "type": 0, "allow": str(1 << 11), "deny": "0"},
-                 {"id": "user1", "type": 1, "allow": str(1 << 11), "deny": "0"},  # user override
-             ]},
-            {"id": "ch2", "name": "nsfw-ch", "type": 0, "nsfw": True,
-             "permission_overwrites": []},
+            {
+                "id": "ch1",
+                "name": "general",
+                "type": 0,
+                "nsfw": False,
+                "permission_overwrites": [
+                    {"id": "role1", "type": 0, "allow": str(1 << 11), "deny": "0"},
+                    {"id": "user1", "type": 1, "allow": str(1 << 11), "deny": "0"},  # user override
+                ],
+            },
+            {"id": "ch2", "name": "nsfw-ch", "type": 0, "nsfw": True, "permission_overwrites": []},
         ],
     )
     async with aiohttp.ClientSession() as session:

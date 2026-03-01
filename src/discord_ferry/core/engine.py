@@ -33,6 +33,7 @@ from discord_ferry.migrator.structure import run_categories, run_channels, run_r
 from discord_ferry.parser.dce_parser import parse_export_directory, validate_export
 from discord_ferry.parser.models import DCEExport
 from discord_ferry.reporter import generate_report
+from discord_ferry.review import build_review_summary
 from discord_ferry.state import MigrationState, load_state, save_state
 
 PhaseFunction = Callable[
@@ -210,6 +211,37 @@ async def run_migration(
             total=total_messages,
         )
     )
+
+    # Pre-creation review: emit summary event and optionally wait for user confirmation
+    if not config.dry_run and not config.resume:
+        discord_meta = load_discord_metadata(config.output_dir)
+        summary = build_review_summary(exports, discord_metadata=discord_meta)
+        on_event(
+            MigrationEvent(
+                phase="review",
+                status="confirm",
+                message="Review migration before proceeding",
+                detail={
+                    "server_name": summary.server_name,
+                    "roles": summary.role_count,
+                    "categories": summary.category_count,
+                    "channels": summary.channel_count,
+                    "emoji": summary.emoji_count,
+                    "messages": summary.message_count,
+                    "threads": summary.thread_count,
+                    "has_permissions": summary.has_permissions,
+                    "nsfw_channels": summary.nsfw_channel_count,
+                    "warnings": summary.warnings,
+                },
+            )
+        )
+        # Wait for user confirmation when a pause_event is provided (GUI mode)
+        if config.pause_event is not None:
+            config.pause_event.clear()
+            while not config.pause_event.is_set():
+                if config.cancel_event and config.cancel_event.is_set():
+                    return state
+                await asyncio.sleep(0.1)
 
     # Phases 2-10: run in order, skipping as appropriate
     runnable_phases = [p for p in PHASE_ORDER if p not in ("export", "validate", "report")]
