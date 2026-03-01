@@ -6,6 +6,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
+from discord_ferry.discord import fetch_and_translate_guild_metadata
 from discord_ferry.discord.client import fetch_guild_channels, fetch_guild_roles
 from discord_ferry.errors import DiscordAuthError
 
@@ -118,3 +119,57 @@ async def test_fetch_guild_roles_429_retries(mock_discord: aioresponses) -> None
     async with aiohttp.ClientSession() as session:
         roles = await fetch_guild_roles(session, TOKEN, GUILD_ID)
     assert len(roles) == 1
+
+
+async def test_fetch_and_translate_metadata(mock_discord: aioresponses) -> None:
+    """Full pipeline: fetch -> translate -> DiscordMetadata."""
+    guild_id = "111"
+    mock_discord.get(
+        f"{DISCORD_API}/guilds/{guild_id}/roles",
+        payload=[
+            # @everyone role (id == guild_id)
+            {"id": guild_id, "name": "@everyone", "permissions": str(1 << 11),
+             "position": 0, "color": 0, "hoist": False, "managed": False},
+            # Normal role with MANAGE_CHANNELS
+            {"id": "role1", "name": "Mod", "permissions": str(1 << 4),
+             "position": 2, "color": 0, "hoist": False, "managed": False},
+            # Bot-managed role — should be excluded from role_permissions
+            {"id": "role2", "name": "BotRole", "permissions": str(1 << 4),
+             "position": 1, "color": 0, "hoist": False, "managed": True},
+        ],
+    )
+    mock_discord.get(
+        f"{DISCORD_API}/guilds/{guild_id}/channels",
+        payload=[
+            {"id": "ch1", "name": "general", "type": 0, "nsfw": False,
+             "permission_overwrites": [
+                 {"id": "role1", "type": 0, "allow": str(1 << 11), "deny": "0"},
+                 {"id": "user1", "type": 1, "allow": str(1 << 11), "deny": "0"},  # user override
+             ]},
+            {"id": "ch2", "name": "nsfw-ch", "type": 0, "nsfw": True,
+             "permission_overwrites": []},
+        ],
+    )
+    async with aiohttp.ClientSession() as session:
+        meta = await fetch_and_translate_guild_metadata(session, TOKEN, guild_id)
+
+    # @everyone -> server_default_permissions (SEND_MESSAGES -> SendMessage bit 22)
+    assert meta.server_default_permissions == (1 << 22)
+
+    # Mod role has MANAGE_CHANNELS -> ManageChannel (bit 0)
+    assert "role1" in meta.role_permissions
+    assert meta.role_permissions["role1"].allow == (1 << 0)
+
+    # Bot role excluded
+    assert "role2" not in meta.role_permissions
+
+    # @everyone role excluded from role_permissions
+    assert guild_id not in meta.role_permissions
+
+    # Channel metadata
+    assert meta.channel_metadata["ch1"].nsfw is False
+    assert meta.channel_metadata["ch2"].nsfw is True
+
+    # Only role overrides kept (user override type=1 filtered out)
+    assert len(meta.channel_metadata["ch1"].role_overrides) == 1
+    assert meta.channel_metadata["ch1"].role_overrides[0].discord_role_id == "role1"
