@@ -10,14 +10,14 @@ Before you start, confirm you have these ready:
 
 **For 1-Click Migration (recommended):**
 
-- [ ] Your Discord user token ([how to find it](https://github.com/Tyrrrz/DiscordChatExporter/wiki/Obtaining-Token))
+- [ ] Your Discord user token — a secret key that gives Ferry temporary access to your account ([how to find it](https://github.com/Tyrrrz/DiscordChatExporter/wiki/Obtaining-Token))
 - [ ] Your Discord server ID (right-click the server name > Copy Server ID)
 - [ ] Your Stoat API URL (`https://api.stoat.chat` for the official host)
 - [ ] Your Stoat user token ([how to find it](setup-stoat.md#2-get-your-stoat-user-token))
 
 **For Offline Migration (advanced):**
 
-- [ ] Your Discord export folder (produced by DiscordChatExporter)
+- [ ] Your Discord export folder (produced by DiscordChatExporter — the free tool described in the [export guide](export-discord.md))
 - [ ] Your Stoat API URL and user token (same as above)
 
 !!! warning "Discord token security"
@@ -43,7 +43,7 @@ Before you start, confirm you have these ready:
 
 === "CLI (Linux / advanced)"
 
-    1. Open a terminal.
+    1. Open a terminal (the text command window — search "Terminal" in your applications).
     2. Run the migrate command with your credentials:
 
     ```
@@ -139,7 +139,7 @@ Before you start, confirm you have these ready:
     This step is automatic. When it finishes, Ferry moves to the Validate screen.
 
     !!! info ".NET Runtime required on macOS and Linux"
-        DCE requires the .NET 8 runtime. If Ferry detects it is missing, it will show an error with a download link. Windows users are not affected — the Windows DCE build is self-contained.
+        DCE requires the .NET 8 runtime (a software framework from Microsoft that DCE needs to run). If Ferry detects it is missing, it will show an error with a download link. Windows users are not affected — the Windows version of DCE includes everything it needs.
 
 === "CLI (Linux / advanced)"
 
@@ -221,7 +221,7 @@ Before creating anything on Stoat, Ferry shows a review summary.
 
 === "CLI (Linux / advanced)"
 
-    The migration starts immediately after validation. You will see Rich-formatted progress output:
+    The migration starts immediately after validation. You will see formatted progress output in your terminal:
 
     - One progress bar per channel, updated in real time
     - Live stats: messages sent, attachments uploaded, errors

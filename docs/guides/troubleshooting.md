@@ -12,7 +12,7 @@ This page covers the most common problems encountered during migration, their ca
 |---|---|
 | **Symptom** | Ferry stops immediately with `401 Unauthorized` |
 | **Cause** | The token you provided is wrong, expired, or was copied incorrectly |
-| **Solution** | Get a fresh token from your Stoat web client: open your browser developer tools (F12), go to **Application > Local Storage**, find your Stoat domain, and copy the `token` value. Tokens can expire if you log out or change your password. |
+| **Solution** | Get a fresh token from your Stoat web client: press F12 to open the browser's hidden developer panel, go to **Application > Local Storage** (where the browser saves website data), find your Stoat domain, and copy the `token` value. Tokens expire if you log out or change your password. |
 
 ### 403 Forbidden on server create
 
@@ -26,11 +26,11 @@ This page covers the most common problems encountered during migration, their ca
 
 ## Rate Limit Errors
 
-### 429 Too Many Requests
+### 429 Too Many Requests (slow down)
 
 | | |
 |---|---|
-| **Symptom** | Ferry slows significantly or logs frequent `429 Too Many Requests` errors |
+| **Symptom** | Ferry slows significantly or logs frequent `429 Too Many Requests` errors (this code means "slow down") |
 | **Cause** | Messages are being sent faster than the Stoat server allows |
 | **Solution** | Increase the rate limit delay. In the GUI, go back to the Setup screen and drag the rate limit slider to 2.0 or 3.0 seconds. On the CLI, add `--rate-limit 2.0`. If you are on a self-hosted instance, you can also relax the server-side rate limit settings. |
 
@@ -95,7 +95,7 @@ This page covers the most common problems encountered during migration, their ca
 | | |
 |---|---|
 | **Symptom** | Windows Defender or another antivirus quarantines or blocks `ferry.exe` |
-| **Cause** | Ferry is distributed as a PyInstaller single-file executable. PyInstaller bundles are frequently flagged as false positives by antivirus software because they self-extract to a temporary folder, which is a common malware technique. |
+| **Cause** | Ferry is packaged as a single-file app using PyInstaller (a Python packaging tool). These self-extracting apps are frequently flagged as false positives by antivirus software because the extraction technique resembles some malware behavior. |
 | **Solution** | Add `ferry.exe` to your antivirus exclusion list. If your organization's policy prevents this, use the Python source distribution instead: clone the [GitHub repository](https://github.com/psthubhorizon/Discord-stoat-ferry) and install with `uv pip install .`, then run with `ferry` directly. The source distribution is not affected by this issue. |
 
 ### macOS "app is damaged and can't be opened"
@@ -103,7 +103,7 @@ This page covers the most common problems encountered during migration, their ca
 | | |
 |---|---|
 | **Symptom** | macOS refuses to open `ferry` with a message that the app is damaged or cannot be opened |
-| **Cause** | macOS applies a quarantine attribute to files downloaded from the internet. This is a Gatekeeper security feature, not an actual problem with the binary. |
+| **Cause** | macOS automatically marks files downloaded from the internet as untrusted. This is a built-in security check called Gatekeeper — it is not an actual problem with Ferry. |
 | **Solution** | Run the following command in Terminal, then try opening Ferry again: |
 
 ```bash

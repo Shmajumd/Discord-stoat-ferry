@@ -45,9 +45,9 @@ Pick your operating system below to get started.
 
 === "Linux"
 
-    Ferry is distributed as a Python package on Linux. You will need a terminal and **Python 3.10 or newer**.
+    Ferry is distributed as a Python package on Linux. You will need a terminal (the text command window — search "Terminal" in your applications) and **Python 3.10 or newer**.
 
-    1.  Install **pipx** if you do not have it already:
+    1.  Install **pipx** (a tool for safely installing Python programs) if you do not have it already:
 
         - Debian / Ubuntu:
           ```bash
@@ -86,7 +86,7 @@ Pick your operating system below to get started.
 
 **Antivirus blocks Ferry.exe (Windows)**
 
-PyInstaller, the tool used to package Ferry into a single `.exe` file, can trigger false positives in some antivirus programs. The file is safe. Add `Ferry.exe` to your antivirus exclusions list, then try running it again. If you are unsure how to do this, search for "add exclusion" along with the name of your antivirus software.
+PyInstaller (the packaging tool used to create Ferry's single `.exe` file) can trigger false positives in some antivirus programs. The file is safe. Add `Ferry.exe` to your antivirus exclusions list, then try running it again. If you are unsure how to do this, search for "add exclusion" along with the name of your antivirus software.
 
 **macOS says "Ferry is damaged and can't be opened"**
 

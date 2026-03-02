@@ -2,7 +2,7 @@
 
 **Migrate your Discord server to Stoat (formerly Revolt) — messages, channels, roles, emoji, attachments, and all.**
 
-One-click app for Windows and Mac. CLI for Linux. No coding required.
+One-click app for Windows and Mac. Command-line interface for Linux. No coding required.
 
 <!-- screenshot: ferry-gui-validate-and-migrate-screens-side-by-side -->
 
@@ -11,16 +11,16 @@ One-click app for Windows and Mac. CLI for Linux. No coding required.
 ## Get Started in 3 Steps
 
 1. **[Install Ferry](getting-started/install.md)** — download the app for Windows, macOS, or Linux
-2. **[Set up Stoat](getting-started/setup-stoat.md)** — find your Stoat API URL and user token (new to Stoat? [Create a free account](https://app.stoat.chat))
+2. **[Set up Stoat](getting-started/setup-stoat.md)** — find your Stoat API URL (the address Ferry uses to connect) and user token (your secret account key). New to Stoat? [Create a free account](https://app.stoat.chat).
 3. **[Run your first migration](getting-started/first-migration.md)** — enter your Discord and Stoat credentials, click Migrate
 
-Already have DCE exports? See [Offline Migration](getting-started/export-discord.md) to skip the export step.
+Already have DiscordChatExporter (DCE) exports? See [Offline Migration](getting-started/export-discord.md) to skip the export step.
 
 ---
 
 ## How Long Does It Take?
 
-About **1 message per second** due to Stoat API rate limits:
+About **1 message per second**. Stoat limits how fast data can be sent to protect the service, which sets this pace:
 
 | Server size | Estimated time |
 |-------------|---------------|
@@ -51,18 +51,18 @@ Ferry can **pause and resume** — close it anytime and pick up where you left o
 | Polls | Supported (rendered as formatted text) |
 | Threads | Supported (converted to text channels) |
 | Forum posts | Supported (grouped into dedicated categories) |
-| Voice channels | Partial (created but may not function — Stoat bug) |
-| Stickers | Image upload with text fallback for Lottie/missing |
+| Voice channels | Partial (created but do not work yet — known Stoat bug) |
+| Stickers | Image upload with text fallback for animated or unavailable stickers |
 | Original timestamps | Shown in message text, not metadata |
 | Pre-creation review | Supported — summary and confirmation before anything is created on Stoat |
-| Server blueprints | Supported — export migration structure as reusable JSON templates |
+| Server blueprints | Supported — export your server's channel and role structure as a reusable template file |
 
 ---
 
 ## Guides
 
 - [GUI Walkthrough](guides/gui-walkthrough.md) — every screen explained
-- [CLI Reference](guides/cli-reference.md) — all flags and environment variables
+- [CLI Reference](guides/cli-reference.md) — all command-line options and configuration settings
 - [Large Servers](guides/large-servers.md) — tips for 100k+ message migrations
 - [Self-Hosted Tips](guides/self-hosted-tips.md) — raising limits, custom configuration
 - [Troubleshooting](guides/troubleshooting.md) — common issues and solutions
@@ -70,5 +70,5 @@ Ferry can **pause and resume** — close it anytime and pick up where you left o
 ## Reference
 
 - [Architecture](reference/architecture.md) — how the engine works
-- [Stoat API Notes](reference/stoat-api-notes.md) — rate limits, permissions, quirks
-- [DCE Format](reference/dce-format.md) — DiscordChatExporter JSON schema
+- [Stoat API Notes](reference/stoat-api-notes.md) — speed limits, permission mapping, and known quirks
+- [DiscordChatExporter Format](reference/dce-format.md) — export file structure and field reference

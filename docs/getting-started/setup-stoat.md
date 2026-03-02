@@ -62,7 +62,7 @@ Follow these steps to find your token:
     !!! tip "Can't find the Application tab?"
         The tabs along the top of the developer tools may be cut off if the panel is narrow. Look for a `>>` or `+` button at the end of the tab row to see hidden tabs.
 
-4. In the left sidebar of the Application (or Storage) panel, expand the **Local Storage** section and click on your Stoat domain. For example: `https://app.stoat.chat` or `https://chat.yourdomain.com`.
+4. In the left sidebar of the Application (or Storage) panel, expand the **Local Storage** section (where the browser saves website data) and click on your Stoat domain. For example: `https://app.stoat.chat` or `https://chat.yourdomain.com`.
 
     <!-- screenshot: devtools-local-storage-expanded -->
 
@@ -89,7 +89,7 @@ Ferry will create a brand-new Stoat server, set up all the channels and roles, a
 
 If you have already created an empty server in Stoat and want Ferry to populate it — for example, because you set a custom name and icon manually, or because your migration account is not the one you want to own the server — you can tell Ferry which server to use.
 
-To find your server's ID, open it in Stoat, go to **Server Settings**, and look for a field labelled **Server ID** (it is a short alphanumeric string). Pass it to Ferry with the `--server-id` option.
+To find your server's ID, open it in Stoat, go to **Server Settings**, and look for a field labelled **Server ID** (it is a short string of letters and numbers, for example `01ABCDEF123`). In the GUI, enter this in the **Existing Server ID** field under Advanced Options. On the command line, pass it with the `--server-id` option.
 
 !!! info "Using `--server-id` with a non-owner account"
     If the account running Ferry did not create the server, make sure it has been given a role with all required permissions before you start. See the next section for the list. Ferry will verify the server is accessible during the CONNECT phase and warn you if it cannot reach it.
@@ -118,7 +118,7 @@ If you are using an existing server (Option B), create a role with these permiss
     Unlike Discord, Stoat does not have a catch-all Administrator permission. You must grant each permission in the list above individually.
 
 !!! note "Emoji migration on existing servers"
-    If you are migrating to an existing server (not one Ferry creates), you may also need the **ManageCustomisation** permission (bit 4, value 16) to upload custom emoji. This permission is not included in the minimum set above because Ferry can create emoji only on servers it owns outright. If your target server was created by a different account, add ManageCustomisation to the role you assign to the Ferry account.
+    If you are migrating to an existing server (not one Ferry creates), you may also need the **ManageCustomisation** permission to upload custom emoji. This permission is not included in the minimum set above because Ferry can create emoji only on servers it owns outright. If your target server was created by a different account, add ManageCustomisation to the role you assign to the Ferry account.
 
 ---
 

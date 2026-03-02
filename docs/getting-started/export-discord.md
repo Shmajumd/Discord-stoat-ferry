@@ -24,7 +24,7 @@ correctly.
 ## Step 1 — Download DiscordChatExporter
 
 DiscordChatExporter (DCE) is a free, open-source tool that reads Discord's API and saves your
-server content to JSON files. Check the [releases page](https://github.com/Tyrrrz/DiscordChatExporter/releases) for the latest version.
+server content to data files (in JSON format, which Ferry can read). Check the [releases page](https://github.com/Tyrrrz/DiscordChatExporter/releases) for the latest version.
 
 1. Go to [https://github.com/Tyrrrz/DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatExporter).
 2. Click **Releases** in the right sidebar.
@@ -42,7 +42,7 @@ server content to JSON files. Check the [releases page](https://github.com/Tyrrr
 
 !!! info "GUI vs CLI"
     The Windows GUI app is easier to use for one-time exports, but Discord Ferry's instructions
-    use the CLI (command-line interface) version because it gives you the exact flags needed.
+    use the CLI (command-line interface — where you type commands into a text window) version because it gives you the exact flags needed.
     The CLI is available on all platforms. If you are on Windows and prefer a graphical app,
     ensure you still apply the settings described in Step 3.
 
@@ -128,8 +128,7 @@ The server ID is a long number, such as `987654321012345678`.
       the actual files. Discord CDN links expire within approximately 24 hours. Any attachment
       link that was not downloaded will be permanently broken in the migrated server.
 
-Open a terminal (on Windows: Command Prompt or PowerShell; on macOS/Linux: Terminal). Navigate
-to the folder where you unzipped DCE.
+Open a terminal — the text command window (on Windows: Command Prompt or PowerShell; on macOS/Linux: the Terminal app). Navigate to the folder where you unzipped DCE.
 
 Run the following command, replacing the two placeholders:
 
@@ -164,7 +163,7 @@ DiscordChatExporter.Cli exportguild --token YOUR_TOKEN_HERE -g YOUR_SERVER_ID --
     - `--media` — downloads all attachments, images, and files locally
     - `--reuse-media` — skips re-downloading files already saved (useful if you resume a failed export)
     - `--markdown false` — preserves raw mention syntax needed for migration
-    - `--format Json` — saves data as JSON, which Discord Ferry reads
+    - `--format Json` — saves data as JSON (a standard data format), which Discord Ferry reads
     - `--include-threads All` — includes public and private thread history
     - `--output ./export/` — saves everything into a folder called `export` in the current directory
 
@@ -178,7 +177,7 @@ The export will print progress to the terminal. Let it run until it prints a com
 
 When the export finishes, open the `export` folder. You should see:
 
-1. **JSON files** for each channel, named like:
+1. **Data files** (one per channel), named like:
    ```
    My Server - general [987654321098765432].json
    My Server - announcements [876543210987654321].json

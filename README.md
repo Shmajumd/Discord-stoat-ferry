@@ -2,7 +2,7 @@
 
 **Migrate your Discord server to Stoat (formerly Revolt) — messages, channels, roles, emoji, attachments, and all.**
 
-> One-click app for Windows and Mac. CLI for Linux.
+> One-click app for Windows and Mac. Command-line interface for Linux.
 > No coding required. Your data stays on your machine.
 
 ---
@@ -19,7 +19,7 @@
 
 ## What is Stoat?
 
-[Stoat](https://stoat.chat) (formerly Revolt) is an open-source chat platform — like Discord, but self-hostable and community-owned. Ferry moves your entire Discord server there.
+[Stoat](https://stoat.chat) (formerly Revolt) is an open-source chat platform — like Discord, but community-owned. You can use the official hosted service or run it on your own server. Ferry moves your entire Discord server there.
 
 New to Stoat? [Create a free account](https://app.stoat.chat) or [self-host your own instance](docs/getting-started/setup-stoat.md).
 
@@ -31,9 +31,9 @@ New to Stoat? [Create a free account](https://app.stoat.chat) or [self-host your
 
 Launch Ferry. You'll need four things:
 
-- **Discord user token** + **server ID** — Ferry shows you how to find these
-- **Stoat API URL** — `https://api.stoat.chat` for the official service, or your own domain if self-hosted
-- **Stoat user token** — found in your browser's developer tools ([step-by-step guide](docs/getting-started/setup-stoat.md))
+- **Discord user token** + **server ID** — a token is a secret key that lets Ferry access your account. Ferry shows you how to find both.
+- **Stoat API URL** — the web address Ferry uses to talk to Stoat. Use `https://api.stoat.chat` for the official service, or your own domain if you run your own Stoat instance.
+- **Stoat user token** — your Stoat secret key. The [step-by-step guide](docs/getting-started/setup-stoat.md) shows exactly where to find it.
 
 ### Step 2: Ferry exports your server automatically
 
@@ -44,13 +44,13 @@ Ferry downloads and runs DiscordChatExporter behind the scenes — no manual ste
 Messages, channels, roles, emoji, and attachments migrate to Stoat.
 Each message shows the original author's name and avatar. Pins are preserved.
 
-> Already have DCE exports? Ferry also supports [offline mode](docs/getting-started/export-discord.md) — just point it at your export folder.
+> Already have DiscordChatExporter (DCE) exports? Ferry also supports [offline mode](docs/getting-started/export-discord.md) — just point it at your export folder.
 
 ---
 
 ## How long does it take?
 
-About **1 message per second** due to Stoat API rate limits. That means:
+About **1 message per second**. Stoat limits how fast data can be sent to protect the service, which sets this pace. That means:
 - 1,000 messages ~ 17 minutes
 - 10,000 messages ~ 3 hours
 - 100,000 messages ~ 28 hours (run overnight!)
@@ -78,7 +78,7 @@ Ferry can **pause and resume** — close it anytime, pick up where you left off.
 | Polls | Supported (rendered as formatted text) |
 | Threads | Supported (converted to text channels) |
 | Forum posts | Supported (grouped into dedicated categories) |
-| Voice channels | Partial (created but may not function — Stoat bug) |
+| Voice channels | Partial (created but do not work yet — known Stoat bug) |
 | Stickers | Image upload with text fallback for Lottie/missing |
 | Original timestamps | Shown in message text, not metadata |
 | Pre-creation review | Summary and confirmation before anything is created on Stoat |

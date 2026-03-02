@@ -42,16 +42,16 @@ Click **Advanced Options** to expand the following settings. Defaults are safe f
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| Rate limit (seconds) | 1.0 | Delay between messages. Range 0.5–3.0. Lower is faster but risks hitting rate limits. |
+| Rate limit (seconds) | 1.0 | Delay between messages. Range 0.5–3.0. Lower is faster but risks hitting Stoat's speed limit on how fast data can be sent. |
 | Skip messages | Off | Import server structure only (channels, roles, categories). No messages will be sent. |
 | Skip emoji | Off | Do not upload custom emoji. |
 | Skip reactions | Off | Do not add message reactions. |
 | Skip threads | Off | Do not migrate threads or forum posts. Useful when approaching the 200-channel limit. |
-| Dry run (no API calls) | Off | Run all migration phases without making any API calls. Useful for validating structure mapping before committing to a full migration. |
+| Dry run | Off | Run all migration phases without actually contacting the Stoat server. Useful for validating your export before committing to a full migration. |
 | Existing server ID | *(empty)* | Paste a Stoat server ID to migrate into a server you have already created, rather than creating a new one. |
 
-!!! tip "Running into 429 errors?"
-    Increase the rate limit slider to 2.0 or 3.0 seconds. This slows the migration but eliminates rate-limit errors.
+!!! tip "Running into 'Too Many Requests' errors?"
+    That error (code 429) means Stoat is asking Ferry to slow down. Increase the rate limit slider to 2.0 or 3.0 seconds. This slows the migration but eliminates the errors.
 
 ### Continue Button
 
@@ -171,7 +171,7 @@ If potential issues are detected, they appear below the summary:
 - **Cancel** — return to the Validate screen without creating anything
 
 !!! info "Why review before creating?"
-    Server creation on Stoat is not easily undone. The review step lets you verify the scope of the migration before any API calls are made. This is especially useful for large servers where mistakes are costly.
+    Server creation on Stoat is not easily undone. The review step lets you verify the scope of the migration before Ferry contacts the Stoat server. This is especially useful for large servers where mistakes are costly.
 
 ---
 
@@ -207,7 +207,7 @@ During the **Messages** phase, a per-channel progress bar shows how many message
 A live counter in the top-right area shows:
 
 - **Messages sent** — total messages delivered to Stoat
-- **Attachments uploaded** — files successfully uploaded to Autumn
+- **Attachments uploaded** — files successfully uploaded to Stoat's file storage
 - **Errors** — messages or items that could not be migrated
 - **Warnings** — non-fatal issues logged
 
