@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix "Stoat bot token" → "Stoat user token" in CLI reference, GUI walkthrough, and first migration guide.
+- Exclude internal design docs (`docs/plans/`, brief) from public docs site via `exclude_docs`.
+- Add dark/light mode toggle and GitHub repo link to docs site theme.
+
 ## [1.3.0] — 2026-03-01
 
 ### Added

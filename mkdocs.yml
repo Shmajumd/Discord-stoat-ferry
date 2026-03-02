@@ -1,14 +1,30 @@
 site_name: Discord Ferry
 site_description: Migrate Discord servers to Stoat (formerly Revolt)
+repo_url: https://github.com/psthubhorizon/Discord-stoat-ferry
+repo_name: psthubhorizon/Discord-stoat-ferry
 theme:
   name: material
   palette:
-    primary: indigo
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
   features:
     - navigation.sections
     - navigation.expand
     - search.suggest
     - content.code.copy
+exclude_docs: |
+  plans/
+  discord-ferry-claude-code-brief.md
 nav:
   - Home: index.md
   - Getting Started:

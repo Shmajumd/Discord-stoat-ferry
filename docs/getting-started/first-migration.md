@@ -18,7 +18,7 @@ Before you start, confirm you have these ready:
 **For Offline Migration (advanced):**
 
 - [ ] Your Discord export folder (produced by DiscordChatExporter)
-- [ ] Your Stoat API URL and bot token (same as above)
+- [ ] Your Stoat API URL and user token (same as above)
 
 !!! warning "Discord token security"
     Your Discord token gives full access to your account. Never share it. Ferry does not store it to disk — it is held in memory only during the export.
@@ -70,13 +70,13 @@ Before you start, confirm you have these ready:
     2. **Discord server ID** — paste the server ID.
     3. **Acknowledge the ToS disclaimer** — check the checkbox.
     4. **Stoat API URL** — select Official or Self-hosted.
-    5. **Bot token** — paste your Stoat bot token.
+    5. **Stoat user token** — paste your Stoat user token.
 
     **Offline mode ("I already have exports"):**
 
     1. Toggle to **"I already have exports"**.
     2. **Export folder** — browse to your DCE export folder.
-    3. **Stoat API URL** and **Bot token** — same as above.
+    3. **Stoat API URL** and **Stoat user token** — same as above.
 
     <!-- screenshot: ferry-setup-filled -->
 
