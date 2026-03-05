@@ -141,7 +141,7 @@ If drift is found, fix it before proceeding.
 ## Edge-Case Tools
 
 ### `python-pro` persona
-Use `Task(octo:personas:python-pro)` for Python-specific architecture decisions: async patterns, dataclass design, type system questions, packaging decisions. Do NOT use for routine implementation.
+Use `Agent(octo:personas:python-pro)` for Python-specific architecture decisions: async patterns, dataclass design, type system questions, packaging decisions. Do NOT use for routine implementation.
 
 ### `octo:tdd` skill
 Invoke `/octo:tdd` when implementing any module with a corresponding test file. Red-green-refactor: write failing test first, then implement, then refactor. Critical for `parser/`, `transforms.py`, and `state.py`.
@@ -154,7 +154,6 @@ Invoke `/octo:tdd` when implementing any module with a corresponding test file. 
 - `superpowers:requesting-code-review` -- in `/ship` Step 3
 - `superpowers:verification-before-completion` -- before claiming any work is done
 - `superpowers:dispatching-parallel-agents` -- for independent implementation tasks
-- `superpowers:session-handoff` -- when context window fills or work session ends
 
 ## Workflow Pipeline
 
