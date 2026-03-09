@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from discord_ferry.core.events import MigrationEvent
 from discord_ferry.migrator.api import api_send_message, get_session
+from discord_ferry.migrator.sanitize import truncate_name
 from discord_ferry.parser.dce_parser import stream_messages
 from discord_ferry.parser.transforms import (
     convert_spoilers,
@@ -171,7 +172,7 @@ async def run_messages(
                         stoat_channel_id,
                         content=header,
                         masquerade={"name": "Discord Ferry"},
-                        nonce=f"ferry-header-{export.channel.id}",
+                        idempotency_key=f"ferry-header-{export.channel.id}",
                     )
                 except Exception as exc:  # noqa: BLE001
                     state.warnings.append(
@@ -413,7 +414,7 @@ async def _process_message(
             embeds=stoat_embeds if stoat_embeds else None,
             masquerade=masquerade,
             replies=replies if replies else None,
-            nonce=f"ferry-{msg.id}",
+            idempotency_key=f"ferry-{msg.id}",
         )
         stoat_msg_id: str = result["_id"]
         state.message_map[msg.id] = stoat_msg_id
@@ -618,7 +619,7 @@ async def _build_masquerade(
     Returns:
         Masquerade dict with ``name``, ``avatar`` (URL or None), and ``colour`` (or None).
     """
-    name = author.nickname or author.name
+    name = truncate_name(author.nickname or author.name)
     avatar_url: str | None = None
 
     if author.id in state.avatar_cache:

@@ -9,12 +9,10 @@ from aioresponses import aioresponses
 from discord_ferry.errors import MigrationError
 from discord_ferry.migrator.api import (
     api_add_reaction,
-    api_create_category,
     api_create_channel,
     api_create_emoji,
     api_create_role,
     api_create_server,
-    api_edit_category,
     api_edit_role,
     api_edit_server,
     api_fetch_server,
@@ -24,6 +22,7 @@ from discord_ferry.migrator.api import (
     api_set_channel_role_permissions,
     api_set_role_permissions,
     api_set_server_default_permissions,
+    api_upsert_categories,
 )
 
 BASE_URL = "https://api.test"
@@ -109,38 +108,23 @@ async def test_api_edit_role(mock_aiohttp: aioresponses) -> None:
 
 
 # ---------------------------------------------------------------------------
-# api_create_category
+# api_upsert_categories
 # ---------------------------------------------------------------------------
 
 
-async def test_api_create_category(mock_aiohttp: aioresponses) -> None:
-    """POST /servers/srv1/categories returns the new category dict including id."""
-    mock_aiohttp.post(
-        f"{BASE_URL}/servers/srv1/categories",
-        payload={"id": "cat42", "title": "General"},
-        status=201,
-    )
-    async with aiohttp.ClientSession() as session:
-        result = await api_create_category(session, BASE_URL, TOKEN, "srv1", "General")
-    assert result["id"] == "cat42"
-    assert result["title"] == "General"
-
-
-# ---------------------------------------------------------------------------
-# api_edit_category
-# ---------------------------------------------------------------------------
-
-
-async def test_api_edit_category(mock_aiohttp: aioresponses) -> None:
-    """PATCH /servers/srv1/categories/cat1 sends the channels list in the body."""
-    channels = ["ch1", "ch2", "ch3"]
+async def test_api_upsert_categories(mock_aiohttp: aioresponses) -> None:
+    """PATCH /servers/srv1 with categories array in the body."""
+    categories = [
+        {"id": "cat1", "title": "General", "channels": ["ch1", "ch2"]},
+        {"id": "cat2", "title": "Off-Topic", "channels": []},
+    ]
     mock_aiohttp.patch(
-        f"{BASE_URL}/servers/srv1/categories/cat1",
-        payload={"id": "cat1", "channels": channels},
+        f"{BASE_URL}/servers/srv1",
+        payload={"_id": "srv1", "categories": categories},
     )
     async with aiohttp.ClientSession() as session:
-        result = await api_edit_category(session, BASE_URL, TOKEN, "srv1", "cat1", channels)
-    assert result["channels"] == channels
+        result = await api_upsert_categories(session, BASE_URL, TOKEN, "srv1", categories)
+    assert result["categories"] == categories
 
 
 # ---------------------------------------------------------------------------
@@ -198,17 +182,23 @@ async def test_api_error_403(mock_aiohttp: aioresponses) -> None:
 
 
 async def test_api_create_emoji(mock_aiohttp: aioresponses) -> None:
-    """POST /servers/srv1/emojis sends name and parent (Autumn ID) in the body."""
-    mock_aiohttp.post(
-        f"{BASE_URL}/servers/srv1/emojis",
-        payload={"_id": "emoji42", "name": "party", "parent": "autumn123"},
-        status=200,
+    """PUT /custom/emoji/{autumn_id} sends name and parent object in the body."""
+    captured_body: dict[str, object] = {}
+
+    def capture_callback(url: object, **kwargs: object) -> None:
+        body = kwargs.get("json") or {}
+        captured_body.update(body)  # type: ignore[arg-type]
+
+    mock_aiohttp.put(
+        f"{BASE_URL}/custom/emoji/autumn123",
+        payload={"_id": "autumn123", "name": "party"},
+        callback=capture_callback,
     )
     async with aiohttp.ClientSession() as session:
-        result = await api_create_emoji(session, BASE_URL, TOKEN, "srv1", "party", "autumn123")
-    assert result["_id"] == "emoji42"
-    assert result["name"] == "party"
-    assert result["parent"] == "autumn123"
+        result = await api_create_emoji(session, BASE_URL, TOKEN, "autumn123", "party", "srv1")
+    assert result["_id"] == "autumn123"
+    assert captured_body["name"] == "party"
+    assert captured_body["parent"] == {"type": "Server", "id": "srv1"}
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +207,7 @@ async def test_api_create_emoji(mock_aiohttp: aioresponses) -> None:
 
 
 async def test_api_send_message(mock_aiohttp: aioresponses) -> None:
-    """POST /channels/ch1/messages sends content, nonce, and excludes None fields."""
+    """POST /channels/ch1/messages sends content with idempotency_key header."""
     mock_aiohttp.post(
         f"{BASE_URL}/channels/ch1/messages",
         payload={"_id": "msg99", "content": "Hello"},
@@ -230,10 +220,40 @@ async def test_api_send_message(mock_aiohttp: aioresponses) -> None:
             TOKEN,
             "ch1",
             content="Hello",
-            nonce="ferry-discord123",
+            idempotency_key="ferry-discord123",
         )
     assert result["_id"] == "msg99"
     assert result["content"] == "Hello"
+
+
+async def test_api_send_message_idempotency_key_header(mock_aiohttp: aioresponses) -> None:
+    """api_send_message sends idempotency_key as Idempotency-Key HTTP header, not in body."""
+    captured_headers: dict[str, str] = {}
+    captured_body: dict[str, object] = {}
+
+    def capture_callback(url: object, **kwargs: object) -> None:
+        hdrs = kwargs.get("headers") or {}
+        captured_headers.update(hdrs)  # type: ignore[arg-type]
+        body = kwargs.get("json") or {}
+        captured_body.update(body)  # type: ignore[arg-type]
+
+    mock_aiohttp.post(
+        f"{BASE_URL}/channels/ch1/messages",
+        payload={"_id": "msg99"},
+        callback=capture_callback,
+    )
+    async with aiohttp.ClientSession() as session:
+        await api_send_message(
+            session,
+            BASE_URL,
+            TOKEN,
+            "ch1",
+            content="Hello",
+            idempotency_key="ferry-discord123",
+        )
+
+    assert captured_headers.get("Idempotency-Key") == "ferry-discord123"
+    assert "nonce" not in captured_body
 
 
 async def test_api_send_message_excludes_none_fields(mock_aiohttp: aioresponses) -> None:

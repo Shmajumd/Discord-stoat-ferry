@@ -39,6 +39,8 @@ async def _api_request(
     url: str,
     token: str,
     json_data: dict[str, Any] | None = None,
+    *,
+    extra_headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Make an authenticated API request with retry on 429/5xx.
 
@@ -48,6 +50,7 @@ async def _api_request(
         url: Full URL for the request.
         token: Stoat session token for the x-session-token header.
         json_data: Optional JSON body. Not sent for GET requests.
+        extra_headers: Additional HTTP headers to merge into the request.
 
     Returns:
         Parsed JSON response as a dict.
@@ -56,6 +59,8 @@ async def _api_request(
         MigrationError: On non-retryable errors or when all retries are exhausted.
     """
     headers = _headers(token)
+    if extra_headers:
+        headers.update(extra_headers)
     # Don't send a JSON body for GET requests even if one is accidentally provided.
     body = json_data if method.upper() != "GET" else None
 
@@ -208,52 +213,30 @@ async def api_edit_role(
     return await _api_request(session, "PATCH", url, token, kwargs)
 
 
-async def api_create_category(
+async def api_upsert_categories(
     session: aiohttp.ClientSession,
     stoat_url: str,
     token: str,
     server_id: str,
-    title: str,
+    categories: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Create a category on a server.
+    """Set the full categories array on a server via PATCH.
+
+    Each category dict must have ``id`` (str, 1-32 chars), ``title`` (str, max 32),
+    and ``channels`` (list of channel ID strings).
 
     Args:
         session: An active aiohttp ClientSession.
         stoat_url: Stoat API base URL.
         token: Stoat session token.
         server_id: Target server ID.
-        title: Display title for the new category.
+        categories: Full list of category dicts to set on the server.
 
     Returns:
-        Category object dict from the API (includes ``id``).
+        Updated server object dict.
     """
-    url = f"{stoat_url.rstrip('/')}/servers/{server_id}/categories"
-    return await _api_request(session, "POST", url, token, {"title": title})
-
-
-async def api_edit_category(
-    session: aiohttp.ClientSession,
-    stoat_url: str,
-    token: str,
-    server_id: str,
-    category_id: str,
-    channels: list[str],
-) -> dict[str, Any]:
-    """Assign channels to a category (two-step category creation pattern).
-
-    Args:
-        session: An active aiohttp ClientSession.
-        stoat_url: Stoat API base URL.
-        token: Stoat session token.
-        server_id: Target server ID.
-        category_id: Target category ID.
-        channels: Full list of channel IDs that belong to this category.
-
-    Returns:
-        Updated category object dict.
-    """
-    url = f"{stoat_url.rstrip('/')}/servers/{server_id}/categories/{category_id}"
-    return await _api_request(session, "PATCH", url, token, {"channels": channels})
+    url = f"{stoat_url.rstrip('/')}/servers/{server_id}"
+    return await _api_request(session, "PATCH", url, token, {"categories": categories})
 
 
 async def api_create_channel(
@@ -295,25 +278,35 @@ async def api_create_emoji(
     session: aiohttp.ClientSession,
     stoat_url: str,
     token: str,
-    server_id: str,
+    emoji_id: str,
     name: str,
-    parent: str,
+    server_id: str,
 ) -> dict[str, Any]:
-    """Create a custom emoji on a server.
+    """Create a custom emoji on a Stoat server.
+
+    Uses ``PUT /custom/emoji/{emoji_id}`` where ``emoji_id`` is the Autumn
+    file ID from a prior upload.  The Autumn ID becomes the emoji's permanent
+    Stoat ID.
 
     Args:
         session: An active aiohttp ClientSession.
         stoat_url: Stoat API base URL.
         token: Stoat session token.
-        server_id: Target server ID.
-        name: Display name for the emoji (without colons).
-        parent: Autumn file ID of the uploaded emoji image.
+        emoji_id: Autumn file ID (becomes the emoji's permanent ID).
+        name: Emoji display name (must match ``^[a-z0-9_]+$``, max 32 chars).
+        server_id: Server that owns this emoji.
 
     Returns:
-        Emoji object dict from the API (includes ``_id``).
+        Emoji object dict from the API.
     """
-    url = f"{stoat_url.rstrip('/')}/servers/{server_id}/emojis"
-    return await _api_request(session, "POST", url, token, {"name": name, "parent": parent})
+    url = f"{stoat_url.rstrip('/')}/custom/emoji/{emoji_id}"
+    return await _api_request(
+        session,
+        "PUT",
+        url,
+        token,
+        {"name": name, "parent": {"type": "Server", "id": server_id}},
+    )
 
 
 async def api_send_message(
@@ -327,7 +320,7 @@ async def api_send_message(
     embeds: list[dict[str, Any]] | None = None,
     masquerade: dict[str, str | None] | None = None,
     replies: list[dict[str, Any]] | None = None,
-    nonce: str | None = None,
+    idempotency_key: str | None = None,
     silent: bool = True,
 ) -> dict[str, Any]:
     """Send a message to a channel.
@@ -342,7 +335,8 @@ async def api_send_message(
         embeds: List of embed dicts. Optional.
         masquerade: Masquerade dict with name/avatar/colour fields (values may be None). Optional.
         replies: List of reply reference dicts. Optional.
-        nonce: Deduplication nonce (use ``f"ferry-{discord_msg_id}"``). Optional.
+        idempotency_key: Deduplication key sent as ``Idempotency-Key`` HTTP header
+            (use ``f"ferry-{discord_msg_id}"``). Optional.
         silent: Suppress notifications. Defaults to True to avoid spam during migration.
 
     Returns:
@@ -360,11 +354,10 @@ async def api_send_message(
         data["masquerade"] = masquerade
     if replies is not None:
         data["replies"] = replies
-    if nonce is not None:
-        data["nonce"] = nonce
     if silent:
         data["silent"] = True
-    return await _api_request(session, "POST", url, token, data)
+    extra = {"Idempotency-Key": idempotency_key} if idempotency_key else None
+    return await _api_request(session, "POST", url, token, data, extra_headers=extra)
 
 
 async def api_add_reaction(

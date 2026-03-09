@@ -459,13 +459,12 @@ def build(
 
     from discord_ferry.blueprint import ServerBlueprint, import_blueprint
     from discord_ferry.migrator.api import (
-        api_create_category,
         api_create_channel,
         api_create_role,
         api_create_server,
-        api_edit_category,
         api_edit_role,
         api_set_role_permissions,
+        api_upsert_categories,
     )
 
     if not template and not blueprint:
@@ -515,11 +514,11 @@ def build(
                 console.print(f"  Created role '{role.name}'")
 
             # Create categories and channels
+            import uuid
+
+            all_categories: list[dict[str, Any]] = []
             for category in bp.categories:
-                cat_result = await api_create_category(
-                    session, stoat_url, token, server_id, category.name
-                )
-                cat_id = cat_result["id"]
+                cat_id = uuid.uuid4().hex[:26]
                 channel_ids: list[str] = []
                 for ch in category.channels:
                     ch_result = await api_create_channel(
@@ -533,10 +532,15 @@ def build(
                     )
                     channel_ids.append(ch_result["_id"])
                     console.print(f"  Created channel '{ch.name}' in '{category.name}'")
-                if channel_ids:
-                    await api_edit_category(
-                        session, stoat_url, token, server_id, cat_id, channel_ids
-                    )
+                all_categories.append(
+                    {
+                        "id": cat_id,
+                        "title": category.name[:32],
+                        "channels": channel_ids,
+                    }
+                )
+            if all_categories:
+                await api_upsert_categories(session, stoat_url, token, server_id, all_categories)
 
             # Create uncategorized channels
             for ch in bp.uncategorized_channels:

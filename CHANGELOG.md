@@ -29,6 +29,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Exclude internal design docs (`docs/plans/`, brief) from public docs site via `exclude_docs`.
 - Add dark/light mode toggle and GitHub repo link to docs site theme.
 
+## [1.4.0] — 2026-03-09
+
+### Fixed
+
+- **Category creation endpoint**: Replaced non-existent `POST /servers/{id}/categories` and `PATCH /servers/{id}/categories/{id}` with correct `PATCH /servers/{id}` using the server's `categories` array property. Categories are now built locally with client-generated IDs and sent in a single PATCH call.
+- **Emoji creation endpoint**: Replaced non-existent `POST /servers/{id}/emojis` with correct `PUT /custom/emoji/{autumn_id}` using `parent` object (`{"type": "Server", "id": server_id}`). The Autumn file ID is now the emoji's permanent Stoat ID.
+- **Channel name truncation**: Reduced from 64 to 32 characters to match Stoat API `maxLength` constraint.
+- **Message nonce deprecated**: Replaced `nonce` body field with `Idempotency-Key` HTTP header for message deduplication. Resume logic unaffected (keyed by Discord message ID).
+
+### Added
+
+- **String sanitization module** (`migrator/sanitize.py`): `truncate_name()` (generic 32-char truncation) and `sanitize_emoji_name()` (lowercase, `[a-z0-9_]` only, 32-char max, fallback to `"emoji"`).
+- **Role name truncation**: Role names truncated to 32 characters before API call.
+- **Category title truncation**: Category titles truncated to 32 characters.
+- **Masquerade name truncation**: Display names truncated to 32 characters.
+- **Emoji name sanitization**: Custom emoji names sanitized to `^[a-z0-9_]+$` pattern and 32-character limit.
+- **`extra_headers` support**: `_api_request()` now accepts optional extra HTTP headers (used for `Idempotency-Key`).
+- **14 new tests**: sanitize helpers (12), masquerade truncation (1), role name truncation (1) — 440 total passing.
+
+### Changed
+
+- **`api_create_emoji()` signature**: Now takes `emoji_id` (Autumn file ID), `name`, and `server_id` instead of `name` and `parent` (Autumn ID).
+- **`api_send_message()` signature**: `nonce` parameter replaced with `idempotency_key`.
+- **`api_create_category()` and `api_edit_category()` removed**: Replaced by `api_upsert_categories()`.
+- **Category management rewrite**: `run_categories()` generates category IDs client-side and sends a single PATCH. `run_channels()` rebuilds the categories array for channel assignment without a server fetch.
+- **`cli.py` build command**: Updated to use `api_upsert_categories()` with client-generated IDs.
+- **Documentation**: Updated `stoat-api-notes.md` and `.claude/rules/stoat-api.md` with correct endpoints, string limits, and deprecation notes.
+
 ## [1.3.0] — 2026-03-01
 
 ### Added

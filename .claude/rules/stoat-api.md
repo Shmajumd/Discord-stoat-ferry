@@ -24,20 +24,23 @@ The Stoat API uses British English. Always use:
 - `ManageCustomisation` (not `ManageCustomization`) for emoji permissions
 - `Masquerade` (capital M) for the permission name
 
-## Categories — Two-Step Process
+## Categories — PATCH Server Object
 
 Categories are NOT a channel property. They live on the Server object.
 
-1. Create channel via `POST /servers/:id/channels`
-2. PATCH the server's `categories` array to include the new channel ID
+Managed via `PATCH /servers/{server_id}` with a `categories` array property. Each category is `{"id": <client-generated string>, "title": <max 32 chars>, "channels": [<channel_ids>]}`. Category IDs are generated client-side.
 
-In stoat.py:
 ```python
-channel = await client.http.create_server_channel(server, name=..., type=...)
-await client.http.edit_category(server, category_id, channels=[...existing_ids, channel.id])
+from uuid import uuid4
+
+# Build categories with generated IDs, then PATCH the server
+categories = [
+    {"id": uuid4().hex[:26], "title": "General", "channels": [ch1_id, ch2_id]},
+]
+await api_upsert_categories(session, stoat_url, token, server_id, categories)
 ```
 
-There is NO `category_id` parameter on channel creation.
+There is NO per-category endpoint and NO `category_id` parameter on channel creation. The entire `categories` array is written at once.
 
 ## Masquerade
 
@@ -49,7 +52,7 @@ There is NO `category_id` parameter on channel creation.
 
 ## Message Deduplication
 
-Always pass `nonce=f"ferry-{discord_msg_id}"` on every message send. This prevents duplicates on resume.
+Always pass `idempotency_key=f"ferry-{discord_msg_id}"` (sent as `Idempotency-Key` HTTP header) on every message send. This prevents duplicates on resume. The old `nonce` body field is deprecated — use the header instead.
 
 ## Autumn File Uploads
 
@@ -90,3 +93,20 @@ Ferry bot minimum permissions = bits 3, 4, 20, 21, 22, 23, 26, 27, 28, 29 = `1,0
 - Embeds per message: 5
 - Reactions per message: 20
 - New user account limits: accounts <72h old may have stricter limits
+
+## String Length Limits
+
+| Field | Max | Regex | Module |
+|-------|-----|-------|--------|
+| Channel name | 32 | — | `structure.py` |
+| Role name | 32 | — | `structure.py` |
+| Category title | 32 | — | `structure.py` |
+| Masquerade name | 32 | — | `messages.py` |
+| Emoji name | 32 | `^[a-z0-9_]+$` | `emoji.py` |
+| Message content | 2,000 | — | `messages.py` |
+
+Truncate/sanitise before sending to avoid 400 errors.
+
+## Emoji Creation
+
+Emoji are created via `PUT /custom/emoji/{emoji_id}` with a `parent` object (`{"type": "Server", "id": "<server_id>"}`), NOT via `POST /servers/{id}/emojis`. The emoji ID is client-generated.

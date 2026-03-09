@@ -283,6 +283,33 @@ async def test_run_roles_skips_everyone(tmp_path: Path) -> None:
     assert state.role_map == {}
 
 
+async def test_run_roles_truncates_long_name(tmp_path: Path) -> None:
+    """ROLES phase truncates role names exceeding 32 characters."""
+    events: list[MigrationEvent] = []
+    config = _make_config(tmp_path)
+    state = MigrationState(stoat_server_id="srv1")
+
+    long_name = "a" * 50
+    role = DCERole(id="r1", name=long_name)
+    exports = [_make_export(messages=[_make_message("m1", roles=[role])])]
+
+    created_names: list[str] = []
+
+    with aioresponses() as m:
+        m.post(
+            f"{STOAT_URL}/servers/srv1/roles",
+            payload={"id": "stoat-r1", "name": long_name[:32]},
+            callback=lambda url, **kwargs: created_names.append(  # type: ignore[misc]
+                (kwargs.get("json") or {}).get("name", "")
+            ),
+        )
+
+        await run_roles(config, state, exports, events.append)
+
+    assert len(created_names) == 1
+    assert len(created_names[0]) == 32
+
+
 async def test_run_roles_colour_without_hash(tmp_path: Path) -> None:
     """ROLES phase handles colour strings without a leading '#'."""
     events: list[MigrationEvent] = []
@@ -325,19 +352,29 @@ async def test_run_categories_creates_categories(tmp_path: Path) -> None:
         _make_export(channel_id="ch2", category_id="cat2", category="Off-Topic"),
     ]
 
+    patch_bodies: list[dict[str, object]] = []
+
     with aioresponses() as m:
-        m.post(
-            f"{STOAT_URL}/servers/srv1/categories",
-            payload={"id": "stoat-cat1", "title": "General"},
-        )
-        m.post(
-            f"{STOAT_URL}/servers/srv1/categories",
-            payload={"id": "stoat-cat2", "title": "Off-Topic"},
+        m.patch(
+            f"{STOAT_URL}/servers/srv1",
+            payload={"_id": "srv1", "categories": []},
+            callback=lambda url, **kwargs: patch_bodies.append(  # type: ignore[misc]
+                kwargs.get("json", {})
+            ),
         )
 
         await run_categories(config, state, exports, events.append)
 
-    assert state.category_map == {"cat1": "stoat-cat1", "cat2": "stoat-cat2"}
+    # Both Discord category IDs should be mapped to generated Stoat IDs.
+    assert len(state.category_map) == 2
+    assert "cat1" in state.category_map
+    assert "cat2" in state.category_map
+    # The PATCH body should contain exactly 2 categories.
+    assert len(patch_bodies) == 1
+    categories = patch_bodies[0].get("categories", [])
+    assert len(categories) == 2  # type: ignore[arg-type]
+    titles = {c["title"] for c in categories}  # type: ignore[union-attr]
+    assert titles == {"General", "Off-Topic"}
 
 
 async def test_run_categories_deduplicates(tmp_path: Path) -> None:
@@ -351,16 +388,25 @@ async def test_run_categories_deduplicates(tmp_path: Path) -> None:
         _make_export(channel_id="ch2", category_id="cat1", category="General"),
     ]
 
+    patch_bodies: list[dict[str, object]] = []
+
     with aioresponses() as m:
-        m.post(
-            f"{STOAT_URL}/servers/srv1/categories",
-            payload={"id": "stoat-cat1", "title": "General"},
+        m.patch(
+            f"{STOAT_URL}/servers/srv1",
+            payload={"_id": "srv1", "categories": []},
+            callback=lambda url, **kwargs: patch_bodies.append(  # type: ignore[misc]
+                kwargs.get("json", {})
+            ),
         )
 
         await run_categories(config, state, exports, events.append)
 
     assert len(state.category_map) == 1
-    assert state.category_map["cat1"] == "stoat-cat1"
+    assert "cat1" in state.category_map
+    # The PATCH body should contain exactly 1 category.
+    assert len(patch_bodies) == 1
+    categories = patch_bodies[0].get("categories", [])
+    assert len(categories) == 1  # type: ignore[arg-type]
 
 
 async def test_run_categories_skips_empty(tmp_path: Path) -> None:
@@ -405,13 +451,17 @@ async def test_run_channels_creates_channels(tmp_path: Path) -> None:
 
 
 async def test_run_channels_assigns_to_categories(tmp_path: Path) -> None:
-    """CHANNELS phase calls api_edit_category with the stoat channel IDs."""
+    """CHANNELS phase PATCHes the server with categories containing the stoat channel IDs."""
     events: list[MigrationEvent] = []
     config = _make_config(tmp_path)
     # Pre-populate category_map as if run_categories already ran.
-    state = MigrationState(stoat_server_id="srv1", category_map={"cat1": "stoat-cat1"})
+    state = MigrationState(stoat_server_id="srv1", category_map={"cat1": "test-cat-id-1"})
 
-    exports = [_make_export(channel_id="ch1", channel_name="general", category_id="cat1")]
+    exports = [
+        _make_export(
+            channel_id="ch1", channel_name="general", category_id="cat1", category="General"
+        )
+    ]
 
     patch_body: dict[str, object] = {}
 
@@ -421,8 +471,8 @@ async def test_run_channels_assigns_to_categories(tmp_path: Path) -> None:
             payload={"_id": "stoat-ch1", "name": "general"},
         )
         m.patch(
-            f"{STOAT_URL}/servers/srv1/categories/stoat-cat1",
-            payload={},
+            f"{STOAT_URL}/servers/srv1",
+            payload={"_id": "srv1"},
             callback=lambda url, **kwargs: patch_body.update(  # type: ignore[misc]
                 kwargs.get("json", {})
             ),
@@ -431,7 +481,13 @@ async def test_run_channels_assigns_to_categories(tmp_path: Path) -> None:
         await run_channels(config, state, exports, events.append)
 
     assert state.channel_map["ch1"] == "stoat-ch1"
-    assert patch_body.get("channels") == ["stoat-ch1"]
+    # Verify the categories array contains our channel.
+    categories = patch_body.get("categories", [])
+    assert len(categories) == 1  # type: ignore[arg-type]
+    cat = categories[0]  # type: ignore[index]
+    assert cat["id"] == "test-cat-id-1"
+    assert cat["title"] == "General"
+    assert cat["channels"] == ["stoat-ch1"]
 
 
 async def test_run_channels_thread_flattening(tmp_path: Path) -> None:
@@ -736,22 +792,22 @@ def test_make_unique_channel_name_multiple_collisions() -> None:
 
 
 def test_make_unique_channel_name_truncates() -> None:
-    """Names longer than 64 characters are truncated."""
+    """Names longer than 32 characters are truncated."""
     long_name = "a" * 100
     existing: set[str] = set()
     result = make_unique_channel_name(long_name, existing)
-    assert len(result) == 64
-    assert result == "a" * 64
+    assert len(result) == 32
+    assert result == "a" * 32
 
 
 def test_make_unique_channel_name_truncated_collision() -> None:
-    """Collision with suffix stays within 64 chars."""
-    base = "a" * 64
+    """Collision with suffix stays within 32 chars."""
+    base = "a" * 32
     existing: set[str] = {base}
     long_name = "a" * 100  # truncates to same base
     result = make_unique_channel_name(long_name, existing)
-    assert len(result) <= 64
-    assert result == "a" * 62 + "-1"
+    assert len(result) <= 32
+    assert result == "a" * 30 + "-1"
 
 
 # ---------------------------------------------------------------------------
@@ -1012,19 +1068,22 @@ async def test_run_channels_forum_threads_get_dedicated_category(tmp_path: Path)
         ),
     ]
 
+    patch_body: dict[str, object] = {}
+
     with aioresponses() as m:
-        # Forum category creation.
-        m.post(
-            f"{STOAT_URL}/servers/srv1/categories",
-            payload={"id": "stoat-forum-cat", "title": "Questions"},
-        )
         # Channel creation.
         m.post(
             f"{STOAT_URL}/servers/srv1/channels",
             payload={"_id": "stoat-ft1", "name": "Questions-how-to-install"},
         )
-        # Category assignment.
-        m.patch(f"{STOAT_URL}/servers/srv1/categories/stoat-forum-cat", payload={})
+        # Category upsert via PATCH /servers/srv1.
+        m.patch(
+            f"{STOAT_URL}/servers/srv1",
+            payload={"_id": "srv1"},
+            callback=lambda url, **kwargs: patch_body.update(  # type: ignore[misc]
+                kwargs.get("json", {})
+            ),
+        )
 
         await run_channels(config, state, exports, events.append)
 
@@ -1033,6 +1092,11 @@ async def test_run_channels_forum_threads_get_dedicated_category(tmp_path: Path)
     assert "forum-Questions" in state.category_map
     messages = _collect_events(events)
     assert any("forum category" in msg.lower() for msg in messages)
+    # Verify the PATCH body contains the forum category with the channel.
+    categories = patch_body.get("categories", [])
+    assert len(categories) == 1  # type: ignore[arg-type]
+    assert categories[0]["title"] == "Questions"  # type: ignore[index]
+    assert categories[0]["channels"] == ["stoat-ft1"]  # type: ignore[index]
 
 
 async def test_run_channels_truncates_at_200(tmp_path: Path) -> None:

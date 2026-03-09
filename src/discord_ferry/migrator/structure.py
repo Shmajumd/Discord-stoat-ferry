@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from discord_ferry.core.events import MigrationEvent
 from discord_ferry.discord.metadata import load_discord_metadata
 from discord_ferry.errors import MigrationError
 from discord_ferry.migrator.api import (
-    api_create_category,
     api_create_channel,
     api_create_role,
     api_create_server,
-    api_edit_category,
     api_edit_role,
     api_edit_server,
     api_fetch_server,
@@ -23,8 +22,10 @@ from discord_ferry.migrator.api import (
     api_set_channel_role_permissions,
     api_set_role_permissions,
     api_set_server_default_permissions,
+    api_upsert_categories,
     get_session,
 )
+from discord_ferry.migrator.sanitize import truncate_name
 from discord_ferry.parser.dce_parser import stream_messages
 from discord_ferry.uploader.autumn import upload_with_cache
 
@@ -54,16 +55,16 @@ FERRY_MIN_PERMISSIONS = (
 
 
 def make_unique_channel_name(name: str, existing_names: set[str]) -> str:
-    """Return a name unique within ``existing_names``, truncating to 64 chars.
+    """Return a name unique within ``existing_names``, truncating to 32 chars.
 
     Args:
         name: Desired channel name.
         existing_names: Set of already-used names. Updated in place with the returned name.
 
     Returns:
-        A name that is not already in ``existing_names`` (at most 64 chars).
+        A name that is not already in ``existing_names`` (at most 32 chars).
     """
-    base = name[:64]
+    base = name[:32]
     if base not in existing_names:
         existing_names.add(base)
         return base
@@ -71,11 +72,16 @@ def make_unique_channel_name(name: str, existing_names: set[str]) -> str:
     counter = 1
     while True:
         suffix = f"-{counter}"
-        candidate = f"{name[: 64 - len(suffix)]}{suffix}"
+        candidate = f"{name[: 32 - len(suffix)]}{suffix}"
         if candidate not in existing_names:
             existing_names.add(candidate)
             return candidate
         counter += 1
+
+
+def _generate_category_id() -> str:
+    """Generate a unique category ID (1-32 char string)."""
+    return uuid.uuid4().hex[:26]
 
 
 async def run_server(
@@ -277,7 +283,11 @@ async def run_roles(
     async with get_session(config) as session:
         for idx, role in enumerate(roles_to_create, start=1):
             result = await api_create_role(
-                session, config.stoat_url, config.token, state.stoat_server_id, role.name
+                session,
+                config.stoat_url,
+                config.token,
+                state.stoat_server_id,
+                truncate_name(role.name),
             )
             stoat_role_id: str = result["id"]
             state.role_map[role.id] = stoat_role_id
@@ -440,11 +450,17 @@ async def run_categories(
         return
 
     async with get_session(config) as session:
+        stoat_categories: list[dict[str, Any]] = []
         for idx, (discord_cat_id, cat_name) in enumerate(unique_categories, start=1):
-            result = await api_create_category(
-                session, config.stoat_url, config.token, state.stoat_server_id, cat_name
+            stoat_cat_id = _generate_category_id()
+            state.category_map[discord_cat_id] = stoat_cat_id
+            stoat_categories.append(
+                {
+                    "id": stoat_cat_id,
+                    "title": truncate_name(cat_name),
+                    "channels": [],
+                }
             )
-            state.category_map[discord_cat_id] = result["id"]
 
             on_event(
                 MigrationEvent(
@@ -454,6 +470,15 @@ async def run_categories(
                     current=idx,
                     total=len(unique_categories),
                 )
+            )
+
+        if stoat_categories:
+            await api_upsert_categories(
+                session,
+                config.stoat_url,
+                config.token,
+                state.stoat_server_id,
+                stoat_categories,
             )
 
     on_event(
@@ -569,26 +594,17 @@ async def run_channels(
         )
 
     # Create forum-derived categories (before dry_run check so they get mapped).
-    # These share the /servers rate bucket (5/10s), so add a safety delay.
     if forum_categories and not config.dry_run:
-        async with get_session(config) as session:
-            for forum_key, forum_name in forum_categories.items():
-                result = await api_create_category(
-                    session,
-                    config.stoat_url,
-                    config.token,
-                    state.stoat_server_id,
-                    forum_name,
+        for forum_key, forum_name in forum_categories.items():
+            stoat_forum_id = _generate_category_id()
+            state.category_map[forum_key] = stoat_forum_id
+            on_event(
+                MigrationEvent(
+                    phase="channels",
+                    status="progress",
+                    message=f"Created forum category '{forum_name}'",
                 )
-                state.category_map[forum_key] = result["id"]
-                on_event(
-                    MigrationEvent(
-                        phase="channels",
-                        status="progress",
-                        message=f"Created forum category '{forum_name}'",
-                    )
-                )
-                await asyncio.sleep(2)  # Safety margin for /servers rate bucket.
+            )
     elif forum_categories and config.dry_run:
         for forum_key in forum_categories:
             state.category_map[forum_key] = f"dry-cat-{forum_key}"
@@ -725,15 +741,39 @@ async def run_channels(
                 )
             )
 
-        # Assign channels to categories (two-step process).
-        for stoat_cat_id, stoat_channel_ids in category_channels.items():
-            await api_edit_category(
+        # Assign channels to categories via a single PATCH.
+        # This replaces the categories array set by run_categories(). Safe because
+        # cat_titles is built from state.category_map (all categories) and every
+        # category has at least one channel (DCE only exports non-empty categories).
+        if category_channels:
+            cat_titles: dict[str, str] = {}
+            for export in exports:
+                cat_id = export.channel.category_id
+                if cat_id and cat_id in state.category_map:
+                    cat_titles[state.category_map[cat_id]] = truncate_name(export.channel.category)
+            # Add forum category titles.
+            for forum_key, forum_name in forum_categories.items():
+                stoat_forum_cat_id = state.category_map.get(forum_key)
+                if stoat_forum_cat_id:
+                    cat_titles[stoat_forum_cat_id] = truncate_name(forum_name)
+
+            # Build the full categories array.
+            all_categories: list[dict[str, Any]] = []
+            for stoat_cat_id, title in cat_titles.items():
+                all_categories.append(
+                    {
+                        "id": stoat_cat_id,
+                        "title": title,
+                        "channels": category_channels.get(stoat_cat_id, []),
+                    }
+                )
+
+            await api_upsert_categories(
                 session,
                 config.stoat_url,
                 config.token,
                 state.stoat_server_id,
-                stoat_cat_id,
-                stoat_channel_ids,
+                all_categories,
             )
 
     on_event(

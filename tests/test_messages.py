@@ -305,6 +305,17 @@ async def test_build_masquerade_missing_avatar_graceful(tmp_path: Path) -> None:
     assert "avatar" not in result
 
 
+async def test_build_masquerade_truncates_long_name(tmp_path: Path) -> None:
+    """Masquerade name is truncated to 32 characters."""
+    state = _make_state()
+    config = _make_config(tmp_path)
+    long_name = "a" * 50
+    author = _make_author(id="auth1", name=long_name)
+    async with aiohttp.ClientSession() as session:
+        result = await _build_masquerade(author, session, state, config)
+    assert len(result["name"]) == 32
+
+
 async def test_build_masquerade_http_avatar_skipped(tmp_path: Path) -> None:
     """Remote avatar URLs are not uploaded — avatar key is omitted."""
     state = _make_state()
@@ -644,8 +655,8 @@ async def test_content_truncated_at_2000_chars(tmp_path: Path, mock_aiohttp: aio
 # ---------------------------------------------------------------------------
 
 
-async def test_nonce_format(tmp_path: Path) -> None:
-    """The nonce sent to the API matches the f'ferry-{msg.id}' pattern."""
+async def test_idempotency_key_format(tmp_path: Path) -> None:
+    """The idempotency_key sent to the API matches the f'ferry-{msg.id}' pattern."""
     sent_kwargs: list[dict[str, Any]] = []
 
     async def capture_send(
@@ -662,7 +673,7 @@ async def test_nonce_format(tmp_path: Path) -> None:
     with patch("discord_ferry.migrator.messages.api_send_message", capture_send):
         await run_messages(config, state, [export], lambda e: None)
 
-    assert sent_kwargs[0]["nonce"] == "ferry-discord_abc123"
+    assert sent_kwargs[0]["idempotency_key"] == "ferry-discord_abc123"
 
 
 # ---------------------------------------------------------------------------

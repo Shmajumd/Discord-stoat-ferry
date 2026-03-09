@@ -55,31 +55,34 @@ a color or permission name.
 
 ---
 
-## Categories — Two-Step Process
+## Categories — PATCH Server Object
 
 Categories in Stoat live on the **Server object**, not on channels. A channel has no `category_id`
-field. The creation flow is always two steps:
+field. Categories are managed by PATCHing the server's `categories` array
+(`PATCH /servers/{server_id}` with a `categories` property).
 
-**Step 1 — Create the channel:**
+Each category in the array is an object: `{"id": <client-generated string>, "title": <max 32 chars>, "channels": [<channel_ids>]}`. Category IDs are generated client-side (e.g. using a short UUID).
 
-```python
-channel = await api_create_channel(
-    session, config.stoat_url, config.token, server_id,
-    name="general", channel_type="TextChannel",
-)
-```
-
-**Step 2 — PATCH the server's categories array:**
+**Step 1 — Build categories locally with generated IDs:**
 
 ```python
-await api_edit_category(
-    session, config.stoat_url, config.token, server_id,
-    category_id, channels=[*existing_ids, channel["_id"]],
-)
+from uuid import uuid4
+
+categories = [
+    {"id": uuid4().hex[:26], "title": "General", "channels": []},
+]
+await api_upsert_categories(session, stoat_url, token, server_id, categories)
 ```
 
-There is no shortcut. Forgetting step 2 leaves the channel uncategorised even if you intended it to
-belong to a category.
+**Step 2 — After creating channels, update the categories array with channel IDs:**
+
+```python
+categories[0]["channels"] = [channel_id_1, channel_id_2]
+await api_upsert_categories(session, stoat_url, token, server_id, categories)
+```
+
+There is no per-category endpoint. The entire `categories` array is written at once via the server
+PATCH. Forgetting to include a channel in any category leaves it uncategorised.
 
 ---
 
@@ -187,19 +190,51 @@ Ferry's VALIDATE phase warns when source data is likely to exceed these limits.
 
 ---
 
-## Message Deduplication with Nonce
+## Message Deduplication with Idempotency-Key
 
-Every message send includes a nonce:
+Every message send includes an `Idempotency-Key` HTTP header:
 
 ```python
 await api_send_message(
     session, config.stoat_url, config.token, channel_id,
-    content=text, nonce=f"ferry-{discord_msg_id}",
+    content=text, idempotency_key=f"ferry-{discord_msg_id}",
 )
 ```
 
-If the same nonce is submitted twice (e.g. after an interrupted migration resumes), Stoat returns the
-existing message rather than creating a duplicate. This makes the MESSAGES phase safe to re-run.
+If the same idempotency key is submitted twice (e.g. after an interrupted migration resumes), Stoat
+returns the existing message rather than creating a duplicate. This makes the MESSAGES phase safe to
+re-run.
+
+!!! note "Deprecated: nonce body field"
+    The old `nonce` body field on message sends is deprecated. Use the `Idempotency-Key` HTTP header
+    instead.
+
+---
+
+## String Length Limits
+
+The Stoat API enforces maximum lengths on several fields. Ferry must truncate before sending to avoid
+400 errors.
+
+| Field | Max Length | Regex | Enforced in |
+|-------|-----------|-------|-------------|
+| Channel name | 32 | — | `structure.py` |
+| Role name | 32 | — | `structure.py` |
+| Category title | 32 | — | `structure.py` |
+| Masquerade name | 32 | — | `messages.py` |
+| Emoji name | 32 | `^[a-z0-9_]+$` | `emoji.py` |
+| Message content | 2,000 | — | `messages.py` |
+
+Emoji names must be lowercase alphanumeric with underscores only. Names that don't match the regex
+are sanitised (lowercased, invalid characters replaced with underscores) during the EMOJI phase.
+
+---
+
+## Emoji Creation
+
+Custom emoji are created via `PUT /custom/emoji/{emoji_id}` with a `parent` object identifying the
+owning server — **not** via `POST /servers/{id}/emojis`. The emoji ID is client-generated. The
+`parent` object has `{"type": "Server", "id": "<server_id>"}`.
 
 ---
 
