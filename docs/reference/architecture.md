@@ -350,7 +350,7 @@ to Autumn with tag `emojis`, creates on server. 2.0s delay between creates (shar
 6. Handle stickers (upload image or text fallback)
 7. Render polls as formatted text
 8. Build masquerade (author name + avatar + colour)
-9. Send via `api_send_message` with nonce `ferry-{discord_msg_id}`
+9. Send via `api_send_message` with `Idempotency-Key` header `ferry-{discord_msg_id}`
 
 Collects `pending_reactions` for Phase 9. Saves state every 50 messages and after each
 channel completes.
@@ -432,13 +432,26 @@ writing a new callback — no engine changes needed.
 | `api_set_role_permissions` | `PUT /servers/:id/permissions/:id` | Set role permission bits |
 | `api_set_server_default_permissions` | `PUT /servers/:id/permissions/default` | Set @everyone server permissions |
 | `api_create_channel` | `POST /servers/:id/channels` | Create channel |
-| `api_edit_category` | `PATCH /servers/:id` | Add channel to category array |
+| `api_upsert_categories` | `PATCH /servers/:id` | Set full categories array on server |
 | `api_set_channel_default_permissions` | `PUT /channels/:id/permissions/default` | Set @everyone channel override |
 | `api_set_channel_role_permissions` | `PUT /channels/:id/permissions/:role_id` | Set per-role channel override |
 | `api_send_message` | `POST /channels/:id/messages` | Send message with masquerade |
 | `api_add_reaction` | `PUT /channels/:id/messages/:id/reactions/:emoji` | Add reaction |
 | `api_create_emoji` | `PUT /custom/emoji/:id` | Register emoji on server |
 | `api_pin_message` | `PUT /channels/:id/messages/:id/pin` | Pin a message |
+
+### String Sanitization (`migrator/sanitize.py`)
+
+The Stoat API enforces a **32-character maximum** on all name fields. Ferry sanitizes at call
+sites (not inside API wrappers) using two helpers:
+
+| Helper | Applied to | Rules |
+|--------|-----------|-------|
+| `truncate_name(name, max_length=32)` | Channel names, role names, category titles, masquerade display names | Truncate to 32 chars |
+| `sanitize_emoji_name(name)` | Custom emoji names | Lowercase, replace non-`[a-z0-9_]` with `_`, strip edges, truncate to 32, fallback to `"emoji"` if empty |
+
+Channel name collisions after truncation are handled by `make_unique_channel_name()` which
+appends `-1`, `-2` suffixes (eating into the 32-char budget as needed).
 
 ### Rate Limit Buckets
 
@@ -513,21 +526,25 @@ FERRY_MIN_PERMISSIONS = (
 )  # == 1_022_361_624
 ```
 
-### Category Two-Step Pattern
+### Category Management Pattern
 
 Categories in Stoat live on the **Server object**, not on channels. There is no `category_id`
-parameter on channel creation. The process is always:
+parameter on channel creation. The process is:
 
-1. Create the channel via `POST /servers/:id/channels`
-2. PATCH the server's `categories` array to include the new channel ID
+1. Create all channels via `POST /servers/:id/channels`
+2. Build the full categories array locally (each category has a client-generated ID, title, and channel list)
+3. PATCH the server with `{"categories": [...]}` in a single call via `api_upsert_categories`
 
 ```python
 channel = await api_create_channel(session, stoat_url, token, server_id, name="general")
-await api_edit_category(session, stoat_url, token, server_id, category_id,
-                        channels=[*existing_ids, channel["_id"]])
+categories = [
+    {"id": uuid4().hex[:26], "title": "Text Channels", "channels": [channel["_id"]]},
+]
+await api_upsert_categories(session, stoat_url, token, server_id, categories)
 ```
 
-Forgetting step 2 leaves the channel uncategorised.
+Category IDs are generated client-side (`uuid4().hex[:26]`). The PATCH replaces the entire
+categories array on the server.
 
 ---
 
@@ -702,7 +719,7 @@ full content transformation and author attribution.
 6. Sticker handling   → upload image or generate text fallback
 7. Poll rendering     → convert poll data to formatted text in message body
 8. Masquerade build   → author name + avatar (lazy upload) + colour
-9. Send               → api_send_message with nonce for deduplication
+9. Send               → api_send_message with Idempotency-Key for deduplication
 ```
 
 ### Author Attribution (Masquerade)
@@ -724,11 +741,11 @@ masquerade = {
 Avatar upload is lazy: the first message from an author triggers an Autumn upload; all
 subsequent messages reuse the cached file ID from `state.avatar_cache`.
 
-### Nonce Deduplication
+### Idempotency-Key Deduplication
 
-Every message send includes `nonce=f"ferry-{discord_msg_id}"`. If the same nonce is submitted
-twice (e.g. after resume), Stoat returns the existing message rather than creating a duplicate.
-This makes the MESSAGES phase safe to re-run.
+Every message send includes an `Idempotency-Key` HTTP header set to `ferry-{discord_msg_id}`.
+If the same key is submitted twice (e.g. after resume), Stoat returns the existing message
+rather than creating a duplicate. This makes the MESSAGES phase safe to re-run.
 
 ### Reply Reference Resolution
 
@@ -781,7 +798,7 @@ The MESSAGES phase has finer granularity:
 - `state.last_completed_channel`: Discord Snowflake ID of the last fully completed channel
 - `state.last_completed_message`: Discord message ID within a partially completed channel
 - Channels are compared as integers (Snowflake ordering)
-- Messages already sent are further deduplicated by nonce
+- Messages already sent are further deduplicated by `Idempotency-Key` header
 
 ### Dry-Run Rejection
 
@@ -1000,12 +1017,13 @@ at once would crash on modest hardware. The streaming parser (`ijson.items`) pro
 one at a time with O(1) memory. The trade-off is slightly more complex code paths (phases must
 call `stream_messages()` when `metadata_only=True`).
 
-### Why Masquerade + Nonce?
+### Why Masquerade + Idempotency-Key?
 
 Stoat has no bulk message import API. Every message must be sent individually via the bot
 account. Masquerade makes each message display the original Discord author's name and avatar,
-preserving conversation readability. Nonce (`ferry-{discord_msg_id}`) prevents duplicate
-messages on resume — Stoat returns the existing message if the nonce was already used.
+preserving conversation readability. The `Idempotency-Key` header (`ferry-{discord_msg_id}`)
+prevents duplicate messages on resume — Stoat returns the existing message if the same key
+was already used.
 
 ### Why Separate discord_metadata.json?
 
@@ -1013,11 +1031,12 @@ Discord permission data comes from the live Discord API, not from DCE exports. S
 `state.json` would mix "what we discovered from Discord" with "what we created on Stoat."
 A separate file keeps concerns clean and survives state file corruption independently.
 
-### Why Two-Step Categories?
+### Why Separate Category Management?
 
 This is a Stoat API constraint, not a design choice. Categories in Stoat are a property of
 the server object (an array of `{id, title, channels[]}`), not a property of channels. There
-is no `category_id` parameter on channel creation.
+is no `category_id` parameter on channel creation. Ferry creates all channels first, then
+sends a single `PATCH /servers/{id}` with the full categories array.
 
 ### Why No ADMINISTRATOR Permission?
 
