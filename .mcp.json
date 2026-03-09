@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "cognilayer": {
-      "command": "/Users/petersterkenburg/.cognilayer-venv/bin/python",
-      "args": ["/Users/petersterkenburg/.cognilayer/mcp-server/server.py"]
-    }
-  }
-}

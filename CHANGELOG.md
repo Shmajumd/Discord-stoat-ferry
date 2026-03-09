@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Comprehensive architecture doc rewrite (`docs/reference/architecture.md`): expanded from ~200 lines to ~1200 lines covering every module, data model, migration phase, API pattern, async design, and design decision.
 - Claude Code config cleanup: remove CogniLayer duplication from project CLAUDE.md (~130 lines), remove PostToolUse hook, remove redundant bash/WebFetch permissions, fix tool name typo.
 - Overhaul Claude Code workflow pipeline: enforced 8-step chain (`/brief → /spec → /brainstorm → /critique → [/test-scenarios] → writing-plans → build → /ship`) with `<WORKFLOW-GATE>` blocks and Phase 0 prerequisite checks in every skill.
+- Clean up public repo: remove internal design docs, briefs, and plans from git tracking; move community files to `.github/`; gitignore local dev config (`.mcp.json`, agent memory).
 
 ### Added
 

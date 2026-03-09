@@ -37,10 +37,17 @@ venv/
 # Ferry output (migration results)
 ferry-output/
 
-# Claude Code session logs
+# Claude Code (session logs, local config, agent memory)
 claude_log/
 .claude/handoffs/
 .claude/change-manifest.md
+.claude/agent-memory/
+.claude/agent-memory-local/
+.mcp.json
+
+# Internal design docs (kept locally, not in public repo)
+docs/plans/
+docs/discord-ferry-claude-code-brief.md
 
 # MkDocs build output
 site/
